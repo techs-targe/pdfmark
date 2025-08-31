@@ -311,51 +311,10 @@ export const WindowManager: React.FC<WindowManagerProps> = ({
     });
   }, [layout]); // Only depend on layout
 
-  // Handle Ctrl+wheel zoom
-  const handleWheel = useCallback((e: React.WheelEvent, paneId: string, tabId: string) => {
-    if (e.ctrlKey || e.metaKey) {
-      // Prevent browser zoom completely
-      e.preventDefault();
-      e.stopPropagation();
-      
-      setPanes(prevPanes => {
-        const pane = prevPanes.find(p => p.id === paneId);
-        const tab = pane?.tabs.find(t => t.id === tabId);
-        if (!tab) return prevPanes;
-        
-        const delta = e.deltaY < 0 ? 0.1 : -0.1; // Zoom in/out
-        let newZoom: number | 'fit-width' | 'fit-page';
-        
-        if (typeof tab.zoomLevel === 'number') {
-          newZoom = Math.max(0.25, Math.min(3, tab.zoomLevel + delta));
-        } else {
-          newZoom = 1 + delta;
-        }
-        
-        return prevPanes.map(p => {
-          if (p.id === paneId) {
-            return {
-              ...p,
-              tabs: p.tabs.map(t => 
-                t.id === tabId 
-                  ? { ...t, zoomLevel: newZoom }
-                  : t
-              ),
-            };
-          }
-          return p;
-        });
-      });
-    }
-  }, []);
-
   // Block browser zoom completely except in PDF areas
   React.useEffect(() => {
     const handleGlobalWheel = (e: WheelEvent) => {
       if (e.ctrlKey || e.metaKey) {
-        const target = e.target as Element;
-        const isInPDFArea = target.closest('.pdf-viewer');
-        
         // Always prevent browser zoom, PDF viewer will handle its own zoom
         e.preventDefault();
         e.stopPropagation();

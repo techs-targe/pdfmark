@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   ToolType,
   COLOR_PRESETS,
@@ -26,8 +26,6 @@ interface ToolbarProps {
   onWindowLayoutChange?: (layout: WindowLayout) => void;
   onUndo: () => void;
   onRedo: () => void;
-  onSave: () => void;
-  onLoad: () => void;
   onClearAll: () => void;
 }
 
@@ -48,8 +46,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onWindowLayoutChange,
   onUndo,
   onRedo,
-  onSave,
-  onLoad,
   onClearAll,
 }) => {
   const [showColorPicker, setShowColorPicker] = useState(false);

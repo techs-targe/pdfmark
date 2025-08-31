@@ -265,7 +265,6 @@ export const ResizableText: React.FC<ResizableTextProps> = ({
               key={handle.name}
               className="resize-handle absolute w-2 h-2 bg-blue-500"
               style={{
-                cursor: handle.cursor,
                 ...handle,
               }}
               onMouseDown={(e) => handleMouseDown(e, handle.name)}

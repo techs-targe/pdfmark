@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback, memo } from 'react';
-import { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
+import { PDFDocumentProxy } from 'pdfjs-dist';
 import { pdfjsLib } from '../../utils/pdfjs-init';
 import { AnnotationLayer } from '../AnnotationLayer/AnnotationLayer';
 import { Annotation, ToolType } from '../../types';
@@ -251,7 +251,7 @@ export const ContinuousPDFViewer = memo<SimplePDFViewerProps>(({
     pageObserverRef.current = observer;
 
     // Observe all page divs
-    pageRefs.current.forEach((div, pageNum) => {
+    pageRefs.current.forEach((div) => {
       observer.observe(div);
     });
 

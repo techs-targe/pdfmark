@@ -382,8 +382,6 @@ function App() {
         onWindowLayoutChange={setWindowLayout}
         onUndo={undo}
         onRedo={redo}
-        onSave={handleSave}
-        onLoad={handleLoad}
         onClearAll={clearAllAnnotations}
       />
 
