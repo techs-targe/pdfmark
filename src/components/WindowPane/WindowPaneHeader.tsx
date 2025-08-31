@@ -33,6 +33,8 @@ export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
   const [showZoomMenu, setShowZoomMenu] = useState(false);
   const [showFileSelector, setShowFileSelector] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const zoomButtonRef = useRef<HTMLButtonElement>(null);
+  const [zoomMenuPosition, setZoomMenuPosition] = useState({ top: 0, left: 0 });
 
   const handlePageJump = useCallback(() => {
     const pageNum = parseInt(pageJumpValue);
@@ -76,7 +78,8 @@ export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
   }, [onLoadAnnotations]);
 
   return (
-    <div className="bg-gray-800 text-white text-xs border-b border-gray-600 overflow-x-auto">
+    <>
+    <div className="bg-gray-800 text-white text-xs border-b border-gray-600 overflow-x-auto relative">
       <div className="flex items-center justify-between px-2 py-1 min-w-fit">
       <input
         ref={fileInputRef}
@@ -271,7 +274,18 @@ export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
         {/* Zoom control */}
         <div className="relative">
           <button
-            onClick={() => setShowZoomMenu(!showZoomMenu)}
+            ref={zoomButtonRef}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (zoomButtonRef.current) {
+                const rect = zoomButtonRef.current.getBoundingClientRect();
+                setZoomMenuPosition({
+                  top: rect.bottom + 5,
+                  left: rect.left
+                });
+              }
+              setShowZoomMenu(!showZoomMenu);
+            }}
             className="px-2 py-0.5 hover:bg-gray-700 rounded text-xs min-w-16"
             title="Zoom Level"
           >
@@ -282,32 +296,39 @@ export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
               : 'Fit P'}
             ▼
           </button>
-          
-          {showZoomMenu && (
-            <>
-              <div 
-                className="fixed inset-0 z-40" 
-                onClick={() => setShowZoomMenu(false)}
-              />
-              <div className="absolute right-0 top-full mt-1 bg-gray-700 border border-gray-600 rounded shadow-lg z-50 min-w-24">
-                {ZOOM_PRESETS.map((preset) => (
-                  <button
-                    key={preset.label}
-                    onClick={() => {
-                      onZoomChange(preset.value);
-                      setShowZoomMenu(false);
-                    }}
-                    className="block w-full px-2 py-1 text-left hover:bg-gray-600 text-xs first:rounded-t last:rounded-b"
-                  >
-                    {preset.label}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
         </div>
       </div>
       </div>
     </div>
+    
+    {/* Zoom menu outside of scrollable container */}
+    {showZoomMenu && (
+      <>
+        <div 
+          className="fixed inset-0 z-40" 
+          onClick={() => setShowZoomMenu(false)}
+        />
+        <div className="fixed bg-gray-700 border border-gray-600 rounded shadow-lg z-50 min-w-24"
+          style={{
+            top: `${zoomMenuPosition.top}px`,
+            left: `${zoomMenuPosition.left}px`
+          }}
+        >
+          {ZOOM_PRESETS.map((preset) => (
+            <button
+              key={preset.label}
+              onClick={() => {
+                onZoomChange(preset.value);
+                setShowZoomMenu(false);
+              }}
+              className="block w-full px-2 py-1 text-left hover:bg-gray-600 text-xs text-white first:rounded-t last:rounded-b"
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+      </>
+    )}
+    </>
   );
 };

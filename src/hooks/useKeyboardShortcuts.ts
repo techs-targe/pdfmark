@@ -89,24 +89,28 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
         }
       }
 
-      // Navigation shortcuts
+      // Navigation shortcuts (not affected by modifiers)
       switch (key) {
         case 'ArrowLeft':
-          if (shiftKey && handlers.onScrollLeft) {
-            event.preventDefault();
-            handlers.onScrollLeft();
-          } else if (!shiftKey && handlers.onPrevPage) {
-            event.preventDefault();
-            handlers.onPrevPage();
+          if (!isModifier) {
+            if (shiftKey && handlers.onScrollLeft) {
+              event.preventDefault();
+              handlers.onScrollLeft();
+            } else if (!shiftKey && handlers.onPrevPage) {
+              event.preventDefault();
+              handlers.onPrevPage();
+            }
           }
           break;
         case 'ArrowRight':
-          if (shiftKey && handlers.onScrollRight) {
-            event.preventDefault();
-            handlers.onScrollRight();
-          } else if (!shiftKey && handlers.onNextPage) {
-            event.preventDefault();
-            handlers.onNextPage();
+          if (!isModifier) {
+            if (shiftKey && handlers.onScrollRight) {
+              event.preventDefault();
+              handlers.onScrollRight();
+            } else if (!shiftKey && handlers.onNextPage) {
+              event.preventDefault();
+              handlers.onNextPage();
+            }
           }
           break;
         case 'ArrowUp':

@@ -80,7 +80,9 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
   
   // Split ratio state (0.1 to 0.9, default 0.5 = 50/50 split)
   const [splitRatio, setSplitRatio] = useState(0.5);
+  const [splitRatioH, setSplitRatioH] = useState(0.5); // Horizontal split for tile mode
   const [isDraggingDivider, setIsDraggingDivider] = useState(false);
+  const [isDraggingDividerH, setIsDraggingDividerH] = useState(false); // Horizontal divider for tile mode
   
   // Confirm dialog state
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -727,8 +729,13 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
     setIsDraggingDivider(true);
   }, []);
 
+  const handleDividerHMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDraggingDividerH(true);
+  }, []);
+
   const handleDividerMouseMove = useCallback((e: MouseEvent) => {
-    if (!isDraggingDivider) return;
+    if (!isDraggingDivider && !isDraggingDividerH) return;
     
     const container = document.querySelector('.window-manager-container');
     if (!container) return;
@@ -736,28 +743,38 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
     const rect = container.getBoundingClientRect();
     let newRatio: number;
     
-    if (layout === 'vertical') {
-      newRatio = (e.clientX - rect.left) / rect.width;
-    } else if (layout === 'horizontal') {
-      newRatio = (e.clientY - rect.top) / rect.height;
-    } else {
-      return;
+    if (isDraggingDivider) {
+      if (layout === 'vertical' || layout === 'tile') {
+        newRatio = (e.clientX - rect.left) / rect.width;
+        setSplitRatio(Math.max(0.1, Math.min(0.9, newRatio)));
+      } else if (layout === 'horizontal') {
+        newRatio = (e.clientY - rect.top) / rect.height;
+        setSplitRatio(Math.max(0.1, Math.min(0.9, newRatio)));
+      }
     }
     
-    // Clamp between 0.1 and 0.9 to prevent panes from becoming too small
-    setSplitRatio(Math.max(0.1, Math.min(0.9, newRatio)));
-  }, [isDraggingDivider, layout]);
+    if (isDraggingDividerH && layout === 'tile') {
+      newRatio = (e.clientY - rect.top) / rect.height;
+      setSplitRatioH(Math.max(0.1, Math.min(0.9, newRatio)));
+    }
+  }, [isDraggingDivider, isDraggingDividerH, layout]);
 
   const handleDividerMouseUp = useCallback(() => {
     setIsDraggingDivider(false);
+    setIsDraggingDividerH(false);
   }, []);
 
   // Set up and tear down mouse event listeners for divider dragging
   React.useEffect(() => {
-    if (isDraggingDivider) {
+    if (isDraggingDivider || isDraggingDividerH) {
       document.addEventListener('mousemove', handleDividerMouseMove);
       document.addEventListener('mouseup', handleDividerMouseUp);
-      document.body.style.cursor = layout === 'vertical' ? 'col-resize' : 'row-resize';
+      
+      if (isDraggingDivider) {
+        document.body.style.cursor = (layout === 'vertical' || layout === 'tile') ? 'col-resize' : 'row-resize';
+      } else if (isDraggingDividerH) {
+        document.body.style.cursor = 'row-resize';
+      }
       document.body.style.userSelect = 'none';
       
       return () => {
@@ -767,7 +784,7 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
         document.body.style.userSelect = 'auto';
       };
     }
-  }, [isDraggingDivider, handleDividerMouseMove, handleDividerMouseUp, layout]);
+  }, [isDraggingDivider, isDraggingDividerH, handleDividerMouseMove, handleDividerMouseUp, layout]);
 
   const renderLayout = () => {
     switch (layout) {
@@ -852,20 +869,68 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
         
       case 'tile':
         return (
-          <div className="h-full flex flex-col">
-            <div className="h-1/2 flex">
-              <div className="w-1/2 border-r border-b border-gray-700">
+          <div className="h-full flex flex-col relative">
+            <div className="flex" style={{ height: `${splitRatioH * 100}%` }}>
+              <div 
+                className="border-r border-b border-gray-700"
+                style={{ width: `${splitRatio * 100}%` }}
+              >
                 {renderPane(panes[0], activePaneId === panes[0].id)}
               </div>
-              <div className="w-1/2 border-b border-gray-700">
+              <div 
+                className="border-b border-gray-700"
+                style={{ width: `${(1 - splitRatio) * 100}%` }}
+              >
                 {panes[1] && renderPane(panes[1], activePaneId === panes[1]?.id)}
               </div>
             </div>
-            <div className="h-1/2 flex">
-              <div className="w-1/2 border-r border-gray-700">
+            
+            {/* Horizontal divider for tile mode */}
+            <div
+              className="absolute left-0 right-0 h-2 hover:h-3 bg-gray-600 hover:bg-blue-500 cursor-row-resize z-20 transition-all"
+              style={{ 
+                top: `calc(${splitRatioH * 100}% - 4px)`,
+                transition: isDraggingDividerH ? 'none' : 'all 0.2s'
+              }}
+              onMouseDown={handleDividerHMouseDown}
+              title="Drag to resize panes"
+            >
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="flex flex-col gap-0.5">
+                  <div className="h-0.5 w-6 bg-gray-400"></div>
+                  <div className="h-0.5 w-6 bg-gray-400"></div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Vertical divider for tile mode */}
+            <div
+              className="absolute top-0 bottom-0 w-2 hover:w-3 bg-gray-600 hover:bg-blue-500 cursor-col-resize z-20 transition-all"
+              style={{ 
+                left: `calc(${splitRatio * 100}% - 4px)`,
+                transition: isDraggingDivider ? 'none' : 'all 0.2s'
+              }}
+              onMouseDown={handleDividerMouseDown}
+              title="Drag to resize panes"
+            >
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="flex gap-0.5">
+                  <div className="w-0.5 h-6 bg-gray-400"></div>
+                  <div className="w-0.5 h-6 bg-gray-400"></div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex" style={{ height: `${(1 - splitRatioH) * 100}%` }}>
+              <div 
+                className="border-r border-gray-700"
+                style={{ width: `${splitRatio * 100}%` }}
+              >
                 {panes[2] && renderPane(panes[2], activePaneId === panes[2]?.id)}
               </div>
-              <div className="w-1/2">
+              <div 
+                style={{ width: `${(1 - splitRatio) * 100}%` }}
+              >
                 {panes[3] && renderPane(panes[3], activePaneId === panes[3]?.id)}
               </div>
             </div>
