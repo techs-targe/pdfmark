@@ -15,6 +15,6 @@ export default defineConfig({
     sourcemap: true
   },
   optimizeDeps: {
-    include: ['pdfjs-dist']
+    include: ['pdfjs-dist/legacy/build/pdf']
   }
 })

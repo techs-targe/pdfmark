@@ -1,7 +1,16 @@
+// Import PDF.js
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Use CDN for PDF.js worker to avoid module loading issues
-// This ensures the worker loads correctly on GitHub Pages and other deployments
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.8.69/pdf.worker.min.mjs`;
+// Set worker path - use local file with proper base path for GitHub Pages
+if (typeof window !== 'undefined') {
+  // Get base path from environment or default to root
+  const basePath = import.meta.env.BASE_URL || '/';
+  
+  // Set worker source with proper path
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `${basePath}pdf.worker.min.mjs`;
+  
+  // Disable automatic worker detection to prevent conflicts
+  pdfjsLib.GlobalWorkerOptions.workerPort = null;
+}
 
 export { pdfjsLib };
