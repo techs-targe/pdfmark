@@ -288,18 +288,18 @@ function App() {
     }
   }, [activeTab.zoomLevel, handleZoomChange]);
 
-  // Handle page navigation
+  // Handle page navigation through WindowManager
   const handleNextPage = useCallback(() => {
-    if (pdfDoc && activeTab.currentPage < pdfDoc.numPages) {
-      handlePageChange(activeTab.currentPage + 1);
+    if (windowManagerRef.current) {
+      windowManagerRef.current.navigateNextPage();
     }
-  }, [pdfDoc, activeTab.currentPage, handlePageChange]);
+  }, []);
 
   const handlePrevPage = useCallback(() => {
-    if (activeTab.currentPage > 1) {
-      handlePageChange(activeTab.currentPage - 1);
+    if (windowManagerRef.current) {
+      windowManagerRef.current.navigatePrevPage();
     }
-  }, [activeTab.currentPage, handlePageChange]);
+  }, []);
 
   // Handle scroll operations
   const handleScrollUp = useCallback(() => {

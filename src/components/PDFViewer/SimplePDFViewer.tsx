@@ -61,10 +61,11 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
   const [touchDistance, setTouchDistance] = useState<number | null>(null);
   const [touchZoomStart, setTouchZoomStart] = useState<number | 'fit-width' | 'fit-page'>(1);
 
-  // Expose containerRef to parent
+  // Expose containerRef and totalPages to parent
   useImperativeHandle(ref, () => ({
-    containerRef
-  }), []);
+    containerRef,
+    totalPages: pdfDoc?.numPages || 0
+  }), [pdfDoc]);
 
   // Load PDF document
   useEffect(() => {

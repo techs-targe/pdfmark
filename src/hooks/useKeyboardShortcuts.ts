@@ -87,12 +87,13 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
             }
             break;
         }
+        return; // Exit early for modifier keys
       }
 
-      // Navigation shortcuts (not affected by modifiers)
-      switch (key) {
-        case 'ArrowLeft':
-          if (!isModifier) {
+      // Navigation shortcuts - only when no modifiers
+      if (!isModifier) {
+        switch (key) {
+          case 'ArrowLeft':
             if (shiftKey && handlers.onScrollLeft) {
               event.preventDefault();
               handlers.onScrollLeft();
@@ -100,10 +101,8 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
               event.preventDefault();
               handlers.onPrevPage();
             }
-          }
-          break;
-        case 'ArrowRight':
-          if (!isModifier) {
+            break;
+          case 'ArrowRight':
             if (shiftKey && handlers.onScrollRight) {
               event.preventDefault();
               handlers.onScrollRight();
@@ -111,29 +110,44 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
               event.preventDefault();
               handlers.onNextPage();
             }
-          }
-          break;
-        case 'ArrowUp':
-          if (handlers.onScrollUp) {
-            event.preventDefault();
-            handlers.onScrollUp();
-          }
-          break;
-        case 'ArrowDown':
-          if (handlers.onScrollDown) {
-            event.preventDefault();
-            handlers.onScrollDown();
-          }
-          break;
-        case 'Enter':
-          if (handlers.onFocusPageInput) {
-            event.preventDefault();
-            handlers.onFocusPageInput();
-          }
-          break;
+            break;
+          case 'ArrowUp':
+            if (handlers.onScrollUp) {
+              event.preventDefault();
+              handlers.onScrollUp();
+            }
+            break;
+          case 'ArrowDown':
+            if (handlers.onScrollDown) {
+              event.preventDefault();
+              handlers.onScrollDown();
+            }
+            break;
+          case 'Enter':
+            if (handlers.onFocusPageInput) {
+              event.preventDefault();
+              handlers.onFocusPageInput();
+            }
+            break;
+        }
       }
     },
-    [handlers]
+    [
+      handlers.onToolChange,
+      handlers.onUndo,
+      handlers.onRedo,
+      handlers.onSave,
+      handlers.onOpen,
+      handlers.onZoomIn,
+      handlers.onZoomOut,
+      handlers.onNextPage,
+      handlers.onPrevPage,
+      handlers.onScrollUp,
+      handlers.onScrollDown,
+      handlers.onScrollLeft,
+      handlers.onScrollRight,
+      handlers.onFocusPageInput,
+    ]
   );
 
   useEffect(() => {

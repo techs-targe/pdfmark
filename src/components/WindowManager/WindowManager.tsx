@@ -101,6 +101,23 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
   const pdfViewerRefs = useRef<Map<string, any>>(new Map());
   const pageInputRefs = useRef<Map<string, HTMLInputElement | null>>(new Map());
   
+  // Handle page change for specific tab - moved up to be available for useImperativeHandle
+  const handlePageChange = useCallback((paneId: string, tabId: string, page: number) => {
+    setPanes(prevPanes => prevPanes.map(pane => {
+      if (pane.id === paneId) {
+        return {
+          ...pane,
+          tabs: pane.tabs.map(tab => 
+            tab.id === tabId 
+              ? { ...tab, currentPage: page }
+              : tab
+          ),
+        };
+      }
+      return pane;
+    }));
+  }, []);
+  
   // Expose methods to parent
   useImperativeHandle(ref, () => ({
     scrollActivePane: (deltaX: number, deltaY: number) => {
@@ -117,13 +134,73 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
       const activePane = panes.find(p => p.id === activePaneId);
       if (!activePane) return;
       
-      const inputRef = pageInputRefs.current.get(activePane.id);
-      if (inputRef) {
-        inputRef.focus();
-        inputRef.select();
+      // Force show the page input first by clicking the page button
+      const pageButtonClass = 'page-jump-button-' + activePane.id;
+      const pageButton = document.querySelector('.' + pageButtonClass);
+      if (pageButton) {
+        (pageButton as HTMLElement).click();
+        // Then focus the input after a small delay
+        setTimeout(() => {
+          const inputRef = pageInputRefs.current.get(activePane.id);
+          if (inputRef) {
+            inputRef.focus();
+            inputRef.select();
+          }
+        }, 50);
+      }
+    },
+    navigateNextPage: () => {
+      // For single layout, ensure we use the first pane
+      const effectivePaneId = layout === 'single' ? 'pane_1' : activePaneId;
+      const activePane = panes.find(p => p.id === effectivePaneId) || panes[0];
+      
+      if (!activePane) return;
+      
+      const activeTab = activePane.tabs.find(t => t.id === activePane.activeTabId) || activePane.tabs[0];
+      if (!activeTab) return;
+      
+      // Try multiple ways to get total pages
+      let totalPages = 0;
+      
+      // Method 1: Check viewer ref with current key
+      const viewerKey = `${activePane.id}_${activeTab.id}`;
+      const viewer = pdfViewerRefs.current.get(viewerKey);
+      if (viewer?.totalPages) {
+        totalPages = viewer.totalPages;
+      }
+      
+      // Method 2: Check if there's any viewer ref (for cases where key might be different)
+      if (!totalPages && pdfViewerRefs.current.size > 0) {
+        const firstViewer = Array.from(pdfViewerRefs.current.values())[0];
+        if (firstViewer?.totalPages) {
+          totalPages = firstViewer.totalPages;
+        }
+      }
+      
+      // Method 3: Use pdfDoc if available
+      if (!totalPages && pdfDoc?.numPages) {
+        totalPages = pdfDoc.numPages;
+      }
+      
+      if (totalPages > 0 && activeTab.currentPage < totalPages) {
+        handlePageChange(activePane.id, activeTab.id, activeTab.currentPage + 1);
+      }
+    },
+    navigatePrevPage: () => {
+      // For single layout, ensure we use the first pane
+      const effectivePaneId = layout === 'single' ? 'pane_1' : activePaneId;
+      const activePane = panes.find(p => p.id === effectivePaneId) || panes[0];
+      
+      if (!activePane) return;
+      
+      const activeTab = activePane.tabs.find(t => t.id === activePane.activeTabId) || activePane.tabs[0];
+      if (!activeTab) return;
+      
+      if (activeTab.currentPage > 1) {
+        handlePageChange(activePane.id, activeTab.id, activeTab.currentPage - 1);
       }
     }
-  }), [panes, activePaneId]);
+  }), [panes, activePaneId, handlePageChange, pdfDoc, layout]);
 
   // Get all loaded files from all panes
   const loadedFiles = React.useMemo(() => {
@@ -242,23 +319,6 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
     }));
   }, []);
 
-  // Handle page change for specific tab
-  const handlePageChange = useCallback((paneId: string, tabId: string, page: number) => {
-    setPanes(prevPanes => prevPanes.map(pane => {
-      if (pane.id === paneId) {
-        return {
-          ...pane,
-          tabs: pane.tabs.map(tab => 
-            tab.id === tabId 
-              ? { ...tab, currentPage: page }
-              : tab
-          ),
-        };
-      }
-      return pane;
-    }));
-  }, []);
-
   // Handle zoom change for specific tab
   const handleZoomChange = useCallback((paneId: string, tabId: string, zoom: number | 'fit-width' | 'fit-page') => {
     setPanes(prevPanes => prevPanes.map(pane => {
@@ -278,6 +338,9 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
 
   // Update layout when it changes externally
   React.useEffect(() => {
+    // Clean up old viewer refs when layout changes
+    pdfViewerRefs.current.clear();
+    
     setPanes(prevPanes => {
       let newPanes: WindowPane[] = [...prevPanes];
       
@@ -301,12 +364,16 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
       switch (layout) {
         case 'single':
           // Preserve all tabs in single pane
+          const singlePaneTabs = uniqueTabs.length > 0 ? uniqueTabs.map((tab, index) => ({
+            ...tab,
+            id: `tab_single_${index}`
+          })) : prevPanes[0].tabs;
+          
           newPanes = [{
             ...prevPanes[0],
-            tabs: uniqueTabs.length > 0 ? uniqueTabs.map((tab, index) => ({
-              ...tab,
-              id: `tab_single_${index}`
-            })) : prevPanes[0].tabs
+            id: 'pane_1', // Ensure pane_1 ID for single layout
+            tabs: singlePaneTabs,
+            activeTabId: singlePaneTabs.length > 0 ? singlePaneTabs[0].id : 'tab_single_0'
           }];
           break;
           
@@ -376,6 +443,11 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
       
       return newPanes;
     });
+    
+    // Reset active pane ID to pane_1 for single layout
+    if (layout === 'single') {
+      setActivePaneId('pane_1');
+    }
   }, [layout]); // Only depend on layout
 
   // Handle Ctrl+wheel zoom
@@ -477,6 +549,7 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
           onSaveAnnotations={onSaveAnnotations}
           onLoadAnnotations={onLoadAnnotations}
           pageInputRef={(ref) => pageInputRefs.current.set(pane.id, ref)}
+          paneId={pane.id}
           onFileOpenInNewTab={(file) => {
             // Always create a new tab when selecting from loaded files
             const timestamp = Date.now();

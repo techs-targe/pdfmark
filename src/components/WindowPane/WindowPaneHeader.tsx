@@ -14,6 +14,7 @@ interface WindowPaneHeaderProps {
   onSaveAnnotations?: () => void;
   onLoadAnnotations?: () => void;
   pageInputRef?: (ref: HTMLInputElement | null) => void;
+  paneId?: string;
 }
 
 export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
@@ -27,6 +28,7 @@ export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
   onSaveAnnotations,
   onLoadAnnotations,
   pageInputRef,
+  paneId,
 }) => {
   const [showPageJump, setShowPageJump] = useState(false);
   const [pageJumpValue, setPageJumpValue] = useState('');
@@ -250,7 +252,7 @@ export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
             ) : (
               <button
                 onClick={() => setShowPageJump(true)}
-                className="px-1 py-0.5 hover:bg-gray-700 rounded text-xs min-w-12"
+                className={`px-1 py-0.5 hover:bg-gray-700 rounded text-xs min-w-12 ${paneId ? `page-jump-button-${paneId}` : ''}`}
                 title="Click to jump to page"
               >
                 {activeTab.currentPage}
