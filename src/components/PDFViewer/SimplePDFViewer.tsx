@@ -90,6 +90,13 @@ export const SimplePDFViewer = memo<SimplePDFViewerProps>(({
       } catch (err) {
         if (!cancelled) {
           console.error('Error loading PDF:', err);
+          console.error('Error details:', {
+            message: err instanceof Error ? err.message : String(err),
+            stack: err instanceof Error ? err.stack : undefined,
+            workerSrc: pdfjsLib.GlobalWorkerOptions.workerSrc,
+            file: file?.name,
+            fileSize: file?.size
+          });
         }
       }
     };

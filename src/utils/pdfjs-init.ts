@@ -7,10 +7,31 @@ if (typeof window !== 'undefined') {
   const basePath = import.meta.env.BASE_URL || '/';
   
   // Set worker source with proper path
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `${basePath}pdf.worker.min.mjs`;
+  const workerSrc = `${basePath}pdf.worker.min.mjs`;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
   
   // Disable automatic worker detection to prevent conflicts
   pdfjsLib.GlobalWorkerOptions.workerPort = null;
+  
+  // Log the worker configuration for debugging
+  console.log('PDF.js Worker Configuration:', {
+    workerSrc,
+    basePath,
+    url: window.location.href
+  });
+  
+  // Test if worker file is accessible
+  fetch(workerSrc, { method: 'HEAD' })
+    .then(response => {
+      if (!response.ok) {
+        console.error(`Worker file not accessible at ${workerSrc}, status: ${response.status}`);
+      } else {
+        console.log('Worker file verified at:', workerSrc);
+      }
+    })
+    .catch(err => {
+      console.error('Failed to verify worker file:', err);
+    });
 }
 
 export { pdfjsLib };
