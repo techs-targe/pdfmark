@@ -102,7 +102,7 @@ export interface StorageData {
     fileHash: string;
     totalPages: number;
   };
-  annotations: Record<string, Annotation[]>;
+  annotations: Record<string, Record<string, Annotation[]>>; // fileName -> pageKey -> annotations
   tabs: Tab[];
   viewSettings: ViewSettings;
 }

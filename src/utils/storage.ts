@@ -115,20 +115,23 @@ export class StorageManager {
     return hashHex;
   }
 
-  // Save annotations for specific page
-  savePageAnnotations(pageNumber: number, annotations: Annotation[]): void {
+  // Save annotations for specific page and file
+  savePageAnnotations(fileName: string, pageNumber: number, annotations: Annotation[]): void {
     const data = this.load();
     if (!data) return;
 
-    data.annotations[`page_${pageNumber}`] = annotations;
+    if (!data.annotations[fileName]) {
+      data.annotations[fileName] = {};
+    }
+    data.annotations[fileName][`page_${pageNumber}`] = annotations;
     this.save(data);
   }
 
-  // Load annotations for specific page
-  loadPageAnnotations(pageNumber: number): Annotation[] {
+  // Load annotations for specific page and file
+  loadPageAnnotations(fileName: string, pageNumber: number): Annotation[] {
     const data = this.load();
-    if (!data) return [];
+    if (!data || !data.annotations[fileName]) return [];
 
-    return data.annotations[`page_${pageNumber}`] || [];
+    return data.annotations[fileName][`page_${pageNumber}`] || [];
   }
 }

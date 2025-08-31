@@ -7,7 +7,7 @@ import { useGlobalAnnotations } from './hooks/useGlobalAnnotations';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { StorageManager } from './utils/storage';
 import { isPDFFile, formatFileSize, generateId } from './utils/helpers';
-import { ToolType, ToolSettings, Tab, WindowLayout, Annotation } from './types';
+import { ToolType, ToolSettings, Tab, WindowLayout } from './types';
 import './styles/index.css';
 
 function App() {
@@ -51,30 +51,6 @@ function App() {
   } = useGlobalAnnotations();
 
   // Handle file upload
-  // Get all opened files
-  const openedFiles = useMemo(() => {
-    const files: { file: File; tabIds: string[] }[] = [];
-    tabs.forEach(tab => {
-      if (tab.file) {
-        const existingFile = files.find(f => f.file.name === tab.file!.name);
-        if (existingFile) {
-          existingFile.tabIds.push(tab.id);
-        } else {
-          files.push({ file: tab.file, tabIds: [tab.id] });
-        }
-      }
-    });
-    return files;
-  }, [tabs]);
-
-  const handleFileSelect = useCallback((file: File) => {
-    // Update current tab with selected file
-    setTabs(tabs.map(t => 
-      t.id === activeTabId 
-        ? { ...t, file, fileName: file.name, currentPage: 1 }
-        : t
-    ));
-  }, [tabs, activeTabId]);
 
   const handleFileUpload = useCallback(async (file: File, targetTabId?: string) => {
     if (!isPDFFile(file)) {

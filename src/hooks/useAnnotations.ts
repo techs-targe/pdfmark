@@ -27,9 +27,9 @@ export function useAnnotations(
   useEffect(() => {
     if (pdfFileName) {
       const data = storage.load();
-      if (data && data.pdfInfo.fileName === pdfFileName) {
-        setAnnotations(data.annotations);
-        setHistory([data.annotations]);
+      if (data && data.annotations[pdfFileName]) {
+        setAnnotations(data.annotations[pdfFileName]);
+        setHistory([data.annotations[pdfFileName]]);
         setHistoryIndex(0);
       }
     }
@@ -42,7 +42,10 @@ export function useAnnotations(
       if (data) {
         storage.autoSave({
           ...data,
-          annotations,
+          annotations: {
+            ...data.annotations,
+            [pdfFileName]: annotations
+          },
         });
       }
     }
