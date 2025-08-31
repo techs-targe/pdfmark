@@ -63,9 +63,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   ];
 
   return (
-    <div className="h-toolbar bg-toolbar-bg text-white flex items-center px-4 gap-4 border-b border-gray-700">
-      {/* Tools */}
-      <div className="flex items-center gap-2 border-r border-gray-600 pr-4">
+    <div className="h-toolbar bg-toolbar-bg text-white border-b border-gray-700 overflow-x-auto">
+      <div className="flex items-center px-4 gap-4 min-w-fit">
+        {/* Tools */}
+        <div className="flex items-center gap-2 border-r border-gray-600 pr-4">
         {tools.map((tool) => (
           <button
             key={tool.id}
@@ -239,6 +240,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         >
           🗑️ Clear All
         </button>
+      </div>
       </div>
     </div>
   );

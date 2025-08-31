@@ -11,6 +11,11 @@ interface ShortcutHandlers {
   onZoomOut?: () => void;
   onNextPage?: () => void;
   onPrevPage?: () => void;
+  onScrollUp?: () => void;
+  onScrollDown?: () => void;
+  onScrollLeft?: () => void;
+  onScrollRight?: () => void;
+  onFocusPageInput?: () => void;
 }
 
 export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
@@ -87,15 +92,39 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
       // Navigation shortcuts
       switch (key) {
         case 'ArrowLeft':
-          if (handlers.onPrevPage) {
+          if (shiftKey && handlers.onScrollLeft) {
+            event.preventDefault();
+            handlers.onScrollLeft();
+          } else if (!shiftKey && handlers.onPrevPage) {
             event.preventDefault();
             handlers.onPrevPage();
           }
           break;
         case 'ArrowRight':
-          if (handlers.onNextPage) {
+          if (shiftKey && handlers.onScrollRight) {
+            event.preventDefault();
+            handlers.onScrollRight();
+          } else if (!shiftKey && handlers.onNextPage) {
             event.preventDefault();
             handlers.onNextPage();
+          }
+          break;
+        case 'ArrowUp':
+          if (handlers.onScrollUp) {
+            event.preventDefault();
+            handlers.onScrollUp();
+          }
+          break;
+        case 'ArrowDown':
+          if (handlers.onScrollDown) {
+            event.preventDefault();
+            handlers.onScrollDown();
+          }
+          break;
+        case 'Enter':
+          if (handlers.onFocusPageInput) {
+            event.preventDefault();
+            handlers.onFocusPageInput();
           }
           break;
       }
@@ -126,4 +155,9 @@ export const KEYBOARD_SHORTCUTS = [
   { keys: '5', description: 'Select Tool' },
   { keys: '←', description: 'Previous Page' },
   { keys: '→', description: 'Next Page' },
+  { keys: '↑', description: 'Scroll Up' },
+  { keys: '↓', description: 'Scroll Down' },
+  { keys: 'Shift+←', description: 'Scroll Left' },
+  { keys: 'Shift+→', description: 'Scroll Right' },
+  { keys: 'Enter', description: 'Focus Page Input' },
 ];

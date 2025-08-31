@@ -13,6 +13,7 @@ interface WindowPaneHeaderProps {
   onFileOpenInNewTab?: (file: File) => void;
   onSaveAnnotations?: () => void;
   onLoadAnnotations?: () => void;
+  pageInputRef?: (ref: HTMLInputElement | null) => void;
 }
 
 export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
@@ -25,6 +26,7 @@ export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
   onFileOpenInNewTab,
   onSaveAnnotations,
   onLoadAnnotations,
+  pageInputRef,
 }) => {
   const [showPageJump, setShowPageJump] = useState(false);
   const [pageJumpValue, setPageJumpValue] = useState('');
@@ -74,7 +76,8 @@ export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
   }, [onLoadAnnotations]);
 
   return (
-    <div className="bg-gray-800 text-white text-xs px-2 py-1 border-b border-gray-600 flex items-center justify-between">
+    <div className="bg-gray-800 text-white text-xs border-b border-gray-600 overflow-x-auto">
+      <div className="flex items-center justify-between px-2 py-1 min-w-fit">
       <input
         ref={fileInputRef}
         type="file"
@@ -211,6 +214,7 @@ export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
             {showPageJump ? (
               <div className="flex items-center gap-1">
                 <input
+                  ref={pageInputRef}
                   type="number"
                   value={pageJumpValue}
                   onChange={(e) => setPageJumpValue(e.target.value)}
@@ -302,6 +306,7 @@ export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
             </>
           )}
         </div>
+      </div>
       </div>
     </div>
   );

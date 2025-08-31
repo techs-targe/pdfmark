@@ -40,7 +40,7 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawingRef = useRef<boolean>(false);
-  const [, forceUpdate] = useState(0);
+  const [renderCounter, forceUpdate] = useState(0);
   const [selectedAnnotation, setSelectedAnnotation] = useState<string | null>(null);
   const [editingAnnotation, setEditingAnnotation] = useState<string | null>(null);
   const [tools, setTools] = useState<{
@@ -263,7 +263,7 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
         ctx.restore();
       }
     }
-  }, [annotations, canvasWidth, canvasHeight, tools.pen, tools.line, currentTool, pageNumber]);
+  }, [annotations, canvasWidth, canvasHeight, tools.pen, tools.line, currentTool, pageNumber, renderCounter]);
 
   // Check if click is on a text annotation
   const getTextAnnotationAtPoint = useCallback((x: number, y: number) => {

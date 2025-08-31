@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback, memo } from 'react';
+import { useRef, useEffect, useState, useCallback, memo, forwardRef, useImperativeHandle } from 'react';
 import { PDFDocumentProxy } from 'pdfjs-dist';
 import { pdfjsLib } from '../../utils/pdfjs-init';
 import { AnnotationLayer } from '../AnnotationLayer/AnnotationLayer';
@@ -26,7 +26,7 @@ interface SimplePDFViewerProps {
   onZoomChange?: (zoom: number | 'fit-width' | 'fit-page') => void;
 }
 
-export const SimplePDFViewer = memo<SimplePDFViewerProps>(({
+export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
   file,
   currentPage,
   zoomLevel,
@@ -41,7 +41,7 @@ export const SimplePDFViewer = memo<SimplePDFViewerProps>(({
   onAnnotationUpdate,
   onScrollChange,
   onZoomChange,
-}) => {
+}, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const pdfCanvasRef = useRef<HTMLCanvasElement>(null);
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
@@ -54,6 +54,17 @@ export const SimplePDFViewer = memo<SimplePDFViewerProps>(({
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [isRightClickPanning, setIsRightClickPanning] = useState(false);
+  const [isCtrlZooming, setIsCtrlZooming] = useState(false);
+  const [zoomStartY, setZoomStartY] = useState(0);
+  const [initialZoom, setInitialZoom] = useState<number | 'fit-width' | 'fit-page'>(1);
+  // Touch gesture states
+  const [touchDistance, setTouchDistance] = useState<number | null>(null);
+  const [touchZoomStart, setTouchZoomStart] = useState<number | 'fit-width' | 'fit-page'>(1);
+
+  // Expose containerRef to parent
+  useImperativeHandle(ref, () => ({
+    containerRef
+  }), []);
 
   // Load PDF document
   useEffect(() => {
@@ -274,6 +285,15 @@ export const SimplePDFViewer = memo<SimplePDFViewerProps>(({
 
   // Handle mouse down for panning with select tool
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    // Handle Ctrl+drag zoom
+    if ((e.ctrlKey || e.metaKey) && e.button === 0 && onZoomChange) {
+      e.preventDefault();
+      setIsCtrlZooming(true);
+      setZoomStartY(e.clientY);
+      setInitialZoom(zoomLevel);
+      return;
+    }
+    
     // Handle right-click panning
     if (e.button === 2 && containerRef.current) {
       e.preventDefault();
@@ -288,10 +308,23 @@ export const SimplePDFViewer = memo<SimplePDFViewerProps>(({
       setPanStart({ x: e.clientX, y: e.clientY });
       e.preventDefault();
     }
-  }, [currentTool]);
+  }, [currentTool, zoomLevel, onZoomChange]);
 
   // Handle mouse move for panning
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    // Handle Ctrl+drag zoom
+    if (isCtrlZooming && onZoomChange) {
+      const deltaY = zoomStartY - e.clientY;
+      const scaleFactor = 1 + deltaY / 200; // Adjust sensitivity
+      
+      let baseZoom = typeof initialZoom === 'number' ? initialZoom : 1;
+      let newZoom = Math.max(0.25, Math.min(8, baseZoom * scaleFactor));
+      
+      onZoomChange(newZoom);
+      e.preventDefault();
+      return;
+    }
+    
     if ((isPanning && currentTool === 'select') || isRightClickPanning) {
       if (containerRef.current) {
         const deltaX = panStart.x - e.clientX;
@@ -304,12 +337,51 @@ export const SimplePDFViewer = memo<SimplePDFViewerProps>(({
         e.preventDefault();
       }
     }
-  }, [isPanning, isRightClickPanning, panStart, currentTool]);
+  }, [isPanning, isRightClickPanning, panStart, currentTool, isCtrlZooming, zoomStartY, initialZoom, onZoomChange]);
 
   // Handle mouse up for panning
   const handleMouseUp = useCallback(() => {
     setIsPanning(false);
     setIsRightClickPanning(false);
+    setIsCtrlZooming(false);
+  }, []);
+
+  // Calculate distance between two touch points
+  const getTouchDistance = (touches: TouchList) => {
+    if (touches.length < 2) return null;
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+
+  // Handle touch start for pinch zoom
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2 && onZoomChange) {
+      e.preventDefault();
+      const distance = getTouchDistance(e.touches);
+      setTouchDistance(distance);
+      setTouchZoomStart(zoomLevel);
+    }
+  }, [zoomLevel, onZoomChange]);
+
+  // Handle touch move for pinch zoom
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2 && touchDistance && onZoomChange) {
+      e.preventDefault();
+      const newDistance = getTouchDistance(e.touches);
+      if (!newDistance) return;
+      
+      const scale = newDistance / touchDistance;
+      let baseZoom = typeof touchZoomStart === 'number' ? touchZoomStart : 1;
+      let newZoom = Math.max(0.25, Math.min(8, baseZoom * scale));
+      
+      onZoomChange(newZoom);
+    }
+  }, [touchDistance, touchZoomStart, onZoomChange]);
+
+  // Handle touch end
+  const handleTouchEnd = useCallback(() => {
+    setTouchDistance(null);
   }, []);
 
   if (!file) {
@@ -347,6 +419,9 @@ export const SimplePDFViewer = memo<SimplePDFViewerProps>(({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
       {/* Content wrapper with proper centering */}
       <div className="flex min-h-full" style={{ padding: typeof zoomLevel === 'number' && zoomLevel > 2 ? '100px' : '24px' }}>
@@ -434,6 +509,6 @@ export const SimplePDFViewer = memo<SimplePDFViewerProps>(({
       </div>
     </div>
   );
-});
+}));
 
 SimplePDFViewer.displayName = 'SimplePDFViewer';

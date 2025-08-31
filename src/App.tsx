@@ -7,7 +7,7 @@ import { useGlobalAnnotations } from './hooks/useGlobalAnnotations';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { StorageManager } from './utils/storage';
 import { isPDFFile, formatFileSize, generateId } from './utils/helpers';
-import { ToolType, ToolSettings, Tab, WindowLayout, Annotation } from './types';
+import { ToolType, ToolSettings, Tab, WindowLayout } from './types';
 import './styles/index.css';
 
 function App() {
@@ -29,6 +29,7 @@ function App() {
   const storage = StorageManager.getInstance();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const jsonInputRef = useRef<HTMLInputElement>(null);
+  const windowManagerRef = useRef<any>(null);
 
   // Get active tab
   const activeTab = useMemo(
@@ -48,33 +49,11 @@ function App() {
     redo,
     canUndo,
     canRedo,
+    hasUnsavedChanges,
+    markAsSaved,
   } = useGlobalAnnotations();
 
   // Handle file upload
-  // Get all opened files
-  const openedFiles = useMemo(() => {
-    const files: { file: File; tabIds: string[] }[] = [];
-    tabs.forEach(tab => {
-      if (tab.file) {
-        const existingFile = files.find(f => f.file.name === tab.file!.name);
-        if (existingFile) {
-          existingFile.tabIds.push(tab.id);
-        } else {
-          files.push({ file: tab.file, tabIds: [tab.id] });
-        }
-      }
-    });
-    return files;
-  }, [tabs]);
-
-  const handleFileSelect = useCallback((file: File) => {
-    // Update current tab with selected file
-    setTabs(tabs.map(t => 
-      t.id === activeTabId 
-        ? { ...t, file, fileName: file.name, currentPage: 1 }
-        : t
-    ));
-  }, [tabs, activeTabId]);
 
   const handleFileUpload = useCallback(async (file: File, targetTabId?: string) => {
     if (!isPDFFile(file)) {
@@ -243,7 +222,12 @@ function App() {
     };
     
     storage.exportToFile(data);
-  }, [storage, tabs, fileAnnotations, pdfFile, pdfDoc, activeTab.file, activeTab.fileName]);
+    
+    // Mark all files as saved
+    Object.keys(fileAnnotations).forEach(file => {
+      markAsSaved(file);
+    });
+  }, [storage, tabs, fileAnnotations, pdfFile, pdfDoc, activeTab.file, activeTab.fileName, markAsSaved]);
 
   // Handle load annotations
   const handleLoad = useCallback(async () => {
@@ -317,6 +301,46 @@ function App() {
     }
   }, [activeTab.currentPage, handlePageChange]);
 
+  // Handle scroll operations
+  const handleScrollUp = useCallback(() => {
+    // Scroll the active PDF viewer up
+    const scrollAmount = 100;
+    if (windowManagerRef.current) {
+      windowManagerRef.current.scrollActivePane(0, -scrollAmount);
+    }
+  }, []);
+
+  const handleScrollDown = useCallback(() => {
+    // Scroll the active PDF viewer down
+    const scrollAmount = 100;
+    if (windowManagerRef.current) {
+      windowManagerRef.current.scrollActivePane(0, scrollAmount);
+    }
+  }, []);
+
+  const handleScrollLeft = useCallback(() => {
+    // Scroll the active PDF viewer left
+    const scrollAmount = 100;
+    if (windowManagerRef.current) {
+      windowManagerRef.current.scrollActivePane(-scrollAmount, 0);
+    }
+  }, []);
+
+  const handleScrollRight = useCallback(() => {
+    // Scroll the active PDF viewer right
+    const scrollAmount = 100;
+    if (windowManagerRef.current) {
+      windowManagerRef.current.scrollActivePane(scrollAmount, 0);
+    }
+  }, []);
+
+  const handleFocusPageInput = useCallback(() => {
+    // Focus the page input field in the active pane
+    if (windowManagerRef.current) {
+      windowManagerRef.current.focusPageInput();
+    }
+  }, []);
+
   // Setup keyboard shortcuts
   useKeyboardShortcuts({
     onUndo: undo,
@@ -329,6 +353,11 @@ function App() {
     onZoomOut: handleZoomOut,
     onNextPage: handleNextPage,
     onPrevPage: handlePrevPage,
+    onScrollUp: handleScrollUp,
+    onScrollDown: handleScrollDown,
+    onScrollLeft: handleScrollLeft,
+    onScrollRight: handleScrollRight,
+    onFocusPageInput: handleFocusPageInput,
   });
 
   // Handle drag and drop
@@ -414,6 +443,7 @@ function App() {
       {/* Window Manager - handles all views with tabs */}
       <div className="flex-1 overflow-hidden">
         <WindowManager
+          ref={windowManagerRef}
           layout={windowLayout}
           pdfFile={pdfFile}
           pdfDoc={pdfDoc}
@@ -439,6 +469,8 @@ function App() {
           }}
           onDocumentLoad={handleDocumentLoad}
           onFileUpload={handleFileUpload}
+          hasUnsavedChanges={hasUnsavedChanges}
+          markAsSaved={markAsSaved}
         />
       </div>
 

@@ -1,8 +1,9 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, forwardRef, useImperativeHandle, useRef } from 'react';
 import { WindowLayout, WindowPane, Tab, Annotation, ToolSettings } from '../../types';
 import { TabManager } from '../TabManager/TabManager';
 import { SimplePDFViewer } from '../PDFViewer/SimplePDFViewer';
 import { WindowPaneHeader } from '../WindowPane/WindowPaneHeader';
+import { ConfirmDialog } from '../ConfirmDialog/ConfirmDialog';
 import { PDFDocumentProxy } from 'pdfjs-dist';
 import { generateId } from '../../utils/helpers';
 
@@ -20,9 +21,11 @@ interface WindowManagerProps {
   onFileUpload: (file: File) => void;
   onSaveAnnotations?: () => void;
   onLoadAnnotations?: () => void;
+  hasUnsavedChanges?: (fileName: string) => boolean;
+  markAsSaved?: (fileName: string) => void;
 }
 
-export const WindowManager: React.FC<WindowManagerProps> = ({
+export const WindowManager = forwardRef<any, WindowManagerProps>(({
   layout,
   pdfFile,
   pdfDoc,
@@ -36,7 +39,9 @@ export const WindowManager: React.FC<WindowManagerProps> = ({
   onFileUpload: _onFileUpload,  // Currently unused
   onSaveAnnotations,
   onLoadAnnotations,
-}) => {
+  hasUnsavedChanges,
+  markAsSaved: _markAsSaved,  // Currently unused
+}, ref) => {
   // Initialize with single pane, and set initial file if available
   const [panes, setPanes] = useState<WindowPane[]>([
     {
@@ -72,6 +77,51 @@ export const WindowManager: React.FC<WindowManagerProps> = ({
     }
   }, [pdfFile]); // Only depend on pdfFile
   const [activePaneId, setActivePaneId] = useState('pane_1');
+  
+  // Split ratio state (0.1 to 0.9, default 0.5 = 50/50 split)
+  const [splitRatio, setSplitRatio] = useState(0.5);
+  const [isDraggingDivider, setIsDraggingDivider] = useState(false);
+  
+  // Confirm dialog state
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    paneId: string;
+    tabId: string;
+    fileName: string;
+  }>({
+    isOpen: false,
+    paneId: '',
+    tabId: '',
+    fileName: '',
+  });
+  
+  // Refs for PDF viewers
+  const pdfViewerRefs = useRef<Map<string, any>>(new Map());
+  const pageInputRefs = useRef<Map<string, HTMLInputElement | null>>(new Map());
+  
+  // Expose methods to parent
+  useImperativeHandle(ref, () => ({
+    scrollActivePane: (deltaX: number, deltaY: number) => {
+      const activePane = panes.find(p => p.id === activePaneId);
+      if (!activePane) return;
+      
+      const viewerKey = `${activePane.id}_${activePane.activeTabId}`;
+      const viewer = pdfViewerRefs.current.get(viewerKey);
+      if (viewer?.containerRef?.current) {
+        viewer.containerRef.current.scrollBy(deltaX, deltaY);
+      }
+    },
+    focusPageInput: () => {
+      const activePane = panes.find(p => p.id === activePaneId);
+      if (!activePane) return;
+      
+      const inputRef = pageInputRefs.current.get(activePane.id);
+      if (inputRef) {
+        inputRef.focus();
+        inputRef.select();
+      }
+    }
+  }), [panes, activePaneId]);
 
   // Get all loaded files from all panes
   const loadedFiles = React.useMemo(() => {
@@ -135,21 +185,36 @@ export const WindowManager: React.FC<WindowManagerProps> = ({
   }, []);
 
   const handleTabRemove = useCallback((paneId: string, tabId: string) => {
-    setPanes(prevPanes => prevPanes.map(pane => {
-      if (pane.id === paneId && pane.tabs.length > 1) {
-        const newTabs = pane.tabs.filter(t => t.id !== tabId);
-        const newActiveTabId = pane.activeTabId === tabId 
-          ? newTabs[0].id 
-          : pane.activeTabId;
-        return {
-          ...pane,
-          tabs: newTabs,
-          activeTabId: newActiveTabId,
-        };
-      }
-      return pane;
-    }));
-  }, []);
+    // Find the tab to check for unsaved changes
+    const pane = panes.find(p => p.id === paneId);
+    const tab = pane?.tabs.find(t => t.id === tabId);
+    
+    if (tab?.fileName && hasUnsavedChanges && hasUnsavedChanges(tab.fileName)) {
+      // Show confirm dialog for unsaved changes
+      setConfirmDialog({
+        isOpen: true,
+        paneId,
+        tabId,
+        fileName: tab.fileName,
+      });
+    } else {
+      // No unsaved changes, proceed with removal
+      setPanes(prevPanes => prevPanes.map(pane => {
+        if (pane.id === paneId && pane.tabs.length > 1) {
+          const newTabs = pane.tabs.filter(t => t.id !== tabId);
+          const newActiveTabId = pane.activeTabId === tabId 
+            ? newTabs[0].id 
+            : pane.activeTabId;
+          return {
+            ...pane,
+            tabs: newTabs,
+            activeTabId: newActiveTabId,
+          };
+        }
+        return pane;
+      }));
+    }
+  }, [panes, hasUnsavedChanges]);
 
   const handleTabChange = useCallback((paneId: string, tabId: string) => {
     setPanes(prevPanes => prevPanes.map(pane => 
@@ -409,6 +474,7 @@ export const WindowManager: React.FC<WindowManagerProps> = ({
           onZoomChange={(zoom) => handleZoomChange(pane.id, activeTab.id, zoom)}
           onSaveAnnotations={onSaveAnnotations}
           onLoadAnnotations={onLoadAnnotations}
+          pageInputRef={(ref) => pageInputRefs.current.set(pane.id, ref)}
           onFileOpenInNewTab={(file) => {
             // Always create a new tab when selecting from loaded files
             const timestamp = Date.now();
@@ -548,6 +614,14 @@ export const WindowManager: React.FC<WindowManagerProps> = ({
             
             return (
               <SimplePDFViewer
+                ref={(viewerRef) => {
+                  const viewerKey = `${pane.id}_${activeTab.id}`;
+                  if (viewerRef) {
+                    pdfViewerRefs.current.set(viewerKey, viewerRef);
+                  } else {
+                    pdfViewerRefs.current.delete(viewerKey);
+                  }
+                }}
                 key={componentKey}
                 file={fileToUse}
                 currentPage={activeTab.currentPage}
@@ -594,6 +668,107 @@ export const WindowManager: React.FC<WindowManagerProps> = ({
   };
 
   // Render based on layout
+  // Handle confirm dialog actions
+  const handleConfirmSave = useCallback(() => {
+    // Save annotations and then close tab
+    if (onSaveAnnotations) {
+      onSaveAnnotations();
+    }
+    
+    // Close the tab after saving
+    const { paneId, tabId } = confirmDialog;
+    setPanes(prevPanes => prevPanes.map(pane => {
+      if (pane.id === paneId && pane.tabs.length > 1) {
+        const newTabs = pane.tabs.filter(t => t.id !== tabId);
+        const newActiveTabId = pane.activeTabId === tabId 
+          ? newTabs[0].id 
+          : pane.activeTabId;
+        return {
+          ...pane,
+          tabs: newTabs,
+          activeTabId: newActiveTabId,
+        };
+      }
+      return pane;
+    }));
+    
+    setConfirmDialog({ isOpen: false, paneId: '', tabId: '', fileName: '' });
+  }, [confirmDialog, onSaveAnnotations]);
+
+  const handleConfirmDiscard = useCallback(() => {
+    // Close tab without saving
+    const { paneId, tabId } = confirmDialog;
+    setPanes(prevPanes => prevPanes.map(pane => {
+      if (pane.id === paneId && pane.tabs.length > 1) {
+        const newTabs = pane.tabs.filter(t => t.id !== tabId);
+        const newActiveTabId = pane.activeTabId === tabId 
+          ? newTabs[0].id 
+          : pane.activeTabId;
+        return {
+          ...pane,
+          tabs: newTabs,
+          activeTabId: newActiveTabId,
+        };
+      }
+      return pane;
+    }));
+    
+    setConfirmDialog({ isOpen: false, paneId: '', tabId: '', fileName: '' });
+  }, [confirmDialog]);
+
+  const handleConfirmCancel = useCallback(() => {
+    // Cancel the close operation
+    setConfirmDialog({ isOpen: false, paneId: '', tabId: '', fileName: '' });
+  }, []);
+
+  // Handle divider drag
+  const handleDividerMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDraggingDivider(true);
+  }, []);
+
+  const handleDividerMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDraggingDivider) return;
+    
+    const container = document.querySelector('.window-manager-container');
+    if (!container) return;
+    
+    const rect = container.getBoundingClientRect();
+    let newRatio: number;
+    
+    if (layout === 'vertical') {
+      newRatio = (e.clientX - rect.left) / rect.width;
+    } else if (layout === 'horizontal') {
+      newRatio = (e.clientY - rect.top) / rect.height;
+    } else {
+      return;
+    }
+    
+    // Clamp between 0.1 and 0.9 to prevent panes from becoming too small
+    setSplitRatio(Math.max(0.1, Math.min(0.9, newRatio)));
+  }, [isDraggingDivider, layout]);
+
+  const handleDividerMouseUp = useCallback(() => {
+    setIsDraggingDivider(false);
+  }, []);
+
+  // Set up and tear down mouse event listeners for divider dragging
+  React.useEffect(() => {
+    if (isDraggingDivider) {
+      document.addEventListener('mousemove', handleDividerMouseMove);
+      document.addEventListener('mouseup', handleDividerMouseUp);
+      document.body.style.cursor = layout === 'vertical' ? 'col-resize' : 'row-resize';
+      document.body.style.userSelect = 'none';
+      
+      return () => {
+        document.removeEventListener('mousemove', handleDividerMouseMove);
+        document.removeEventListener('mouseup', handleDividerMouseUp);
+        document.body.style.cursor = 'default';
+        document.body.style.userSelect = 'auto';
+      };
+    }
+  }, [isDraggingDivider, handleDividerMouseMove, handleDividerMouseUp, layout]);
+
   const renderLayout = () => {
     switch (layout) {
       case 'single':
@@ -605,11 +780,35 @@ export const WindowManager: React.FC<WindowManagerProps> = ({
         
       case 'vertical':
         return (
-          <div className="h-full flex">
-            <div className="w-1/2 border-r border-gray-700">
+          <div className="h-full flex relative">
+            <div 
+              className="border-r border-gray-700"
+              style={{ width: `${splitRatio * 100}%` }}
+            >
               {renderPane(panes[0], activePaneId === panes[0].id)}
             </div>
-            <div className="w-1/2">
+            
+            {/* Draggable divider */}
+            <div
+              className="absolute top-0 bottom-0 w-2 hover:w-3 bg-gray-600 hover:bg-blue-500 cursor-col-resize z-20 transition-all"
+              style={{ 
+                left: `calc(${splitRatio * 100}% - 4px)`,
+                transition: isDraggingDivider ? 'none' : 'all 0.2s'
+              }}
+              onMouseDown={handleDividerMouseDown}
+              title="Drag to resize panes"
+            >
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="flex gap-0.5">
+                  <div className="w-0.5 h-6 bg-gray-400"></div>
+                  <div className="w-0.5 h-6 bg-gray-400"></div>
+                </div>
+              </div>
+            </div>
+            
+            <div 
+              style={{ width: `${(1 - splitRatio) * 100}%` }}
+            >
               {panes[1] && renderPane(panes[1], activePaneId === panes[1]?.id)}
             </div>
           </div>
@@ -617,11 +816,35 @@ export const WindowManager: React.FC<WindowManagerProps> = ({
         
       case 'horizontal':
         return (
-          <div className="h-full flex flex-col">
-            <div className="h-1/2 border-b border-gray-700">
+          <div className="h-full flex flex-col relative">
+            <div 
+              className="border-b border-gray-700"
+              style={{ height: `${splitRatio * 100}%` }}
+            >
               {renderPane(panes[0], activePaneId === panes[0].id)}
             </div>
-            <div className="h-1/2">
+            
+            {/* Draggable divider */}
+            <div
+              className="absolute left-0 right-0 h-2 hover:h-3 bg-gray-600 hover:bg-blue-500 cursor-row-resize z-20 transition-all"
+              style={{ 
+                top: `calc(${splitRatio * 100}% - 4px)`,
+                transition: isDraggingDivider ? 'none' : 'all 0.2s'
+              }}
+              onMouseDown={handleDividerMouseDown}
+              title="Drag to resize panes"
+            >
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="flex flex-col gap-0.5">
+                  <div className="h-0.5 w-6 bg-gray-400"></div>
+                  <div className="h-0.5 w-6 bg-gray-400"></div>
+                </div>
+              </div>
+            </div>
+            
+            <div 
+              style={{ height: `${(1 - splitRatio) * 100}%` }}
+            >
               {panes[1] && renderPane(panes[1], activePaneId === panes[1]?.id)}
             </div>
           </div>
@@ -655,8 +878,24 @@ export const WindowManager: React.FC<WindowManagerProps> = ({
   };
 
   return (
-    <div className="h-full bg-gray-900">
+    <div className="h-full bg-gray-900 window-manager-container">
       {renderLayout()}
+      
+      {/* Confirm dialog for unsaved changes */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        title="Unsaved Changes"
+        message={`You have unsaved changes in "${confirmDialog.fileName}". Do you want to save before closing?`}
+        confirmText="Save"
+        cancelText="Cancel"
+        discardText="Discard"
+        showDiscard={true}
+        onConfirm={handleConfirmSave}
+        onCancel={handleConfirmCancel}
+        onDiscard={handleConfirmDiscard}
+      />
     </div>
   );
-};
+});
+
+WindowManager.displayName = 'WindowManager';

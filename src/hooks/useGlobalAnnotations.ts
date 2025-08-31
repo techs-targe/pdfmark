@@ -12,12 +12,15 @@ interface UseGlobalAnnotationsReturn {
   redo: () => void;
   canUndo: boolean;
   canRedo: boolean;
+  hasUnsavedChanges: (fileName: string) => boolean;
+  markAsSaved: (fileName: string) => void;
 }
 
 export function useGlobalAnnotations(): UseGlobalAnnotationsReturn {
   const [fileAnnotations, setFileAnnotations] = useState<Record<string, Record<string, Annotation[]>>>({});
   const [history, setHistory] = useState<Record<string, Record<string, Annotation[]>>[]>([{}]);
   const [historyIndex, setHistoryIndex] = useState(0);
+  const [savedAnnotations, setSavedAnnotations] = useState<Record<string, Record<string, Annotation[]>>>({});
 
   const addToHistory = useCallback((newAnnotations: Record<string, Record<string, Annotation[]>>) => {
     setHistory((prev) => {
@@ -128,6 +131,23 @@ export function useGlobalAnnotations(): UseGlobalAnnotationsReturn {
     }
   }, [history, historyIndex]);
 
+  const hasUnsavedChanges = useCallback((fileName: string) => {
+    const currentFileAnnotations = fileAnnotations[fileName] || {};
+    const savedFileAnnotations = savedAnnotations[fileName] || {};
+    
+    // Deep comparison of annotations
+    return JSON.stringify(currentFileAnnotations) !== JSON.stringify(savedFileAnnotations);
+  }, [fileAnnotations, savedAnnotations]);
+
+  const markAsSaved = useCallback((fileName: string) => {
+    if (fileAnnotations[fileName]) {
+      setSavedAnnotations(prev => ({
+        ...prev,
+        [fileName]: JSON.parse(JSON.stringify(fileAnnotations[fileName]))
+      }));
+    }
+  }, [fileAnnotations]);
+
   return {
     fileAnnotations,
     setAllAnnotations,
@@ -139,5 +159,7 @@ export function useGlobalAnnotations(): UseGlobalAnnotationsReturn {
     redo,
     canUndo: historyIndex > 0,
     canRedo: historyIndex < history.length - 1,
+    hasUnsavedChanges,
+    markAsSaved,
   };
 }
