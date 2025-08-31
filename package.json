@@ -1,13 +1,15 @@
 {
   "name": "pdfmark",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check": "npm run typecheck && npm run lint"
   },
   "dependencies": {
     "react": "^18.3.1",
