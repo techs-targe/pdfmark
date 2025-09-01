@@ -62,6 +62,8 @@ export const ContinuousPDFViewer = memo<SimplePDFViewerProps>(({
   const [pageJumpValue, setPageJumpValue] = useState('');
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [lastTap, setLastTap] = useState<{ time: number; y: number } | null>(null);
+  const [isResizingText, setIsResizingText] = useState(false);
 
   // Load PDF document
   useEffect(() => {
@@ -405,15 +407,56 @@ export const ContinuousPDFViewer = memo<SimplePDFViewerProps>(({
 
   // Handle touch events for mobile panning
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    // Check if touching a text resize handle
+    const target = e.target as HTMLElement;
+    if (target.classList.contains('resize-handle')) {
+      setIsResizingText(true);
+      return;
+    }
+
+    // Handle double-tap for page navigation
+    if (e.touches.length === 1) {
+      const now = Date.now();
+      const touch = e.touches[0];
+      const rect = containerRef.current?.getBoundingClientRect();
+      
+      if (rect && lastTap && now - lastTap.time < 300) {
+        // Double tap detected
+        e.preventDefault();
+        const relativeY = touch.clientY - rect.top;
+        const isTopHalf = relativeY < rect.height / 2;
+        
+        // Find current page and navigate
+        const currentPage = Array.from(visiblePages)[0] || 1;
+        if (isTopHalf && currentPage > 1) {
+          const targetElement = pageRefs.current.get(currentPage - 1);
+          targetElement?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else if (!isTopHalf && pdfDoc && currentPage < pdfDoc.numPages) {
+          const targetElement = pageRefs.current.get(currentPage + 1);
+          targetElement?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        setLastTap(null);
+      } else {
+        setLastTap({ time: now, y: touch.clientY });
+      }
+    }
+
     // Handle single touch for panning with select tool
-    if (e.touches.length === 1 && currentTool === 'select' && containerRef.current) {
+    if (e.touches.length === 1 && currentTool === 'select' && containerRef.current && !isResizingText) {
       const touch = e.touches[0];
       setIsPanning(true);
       setPanStart({ x: touch.clientX, y: touch.clientY });
     }
-  }, [currentTool]);
+  }, [currentTool, lastTap, visiblePages, pdfDoc, isResizingText]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    // Prevent PDF movement if resizing text
+    if (isResizingText) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+
     if (e.touches.length === 1 && isPanning && containerRef.current) {
       const touch = e.touches[0];
       const deltaX = panStart.x - touch.clientX;
@@ -424,10 +467,11 @@ export const ContinuousPDFViewer = memo<SimplePDFViewerProps>(({
       
       setPanStart({ x: touch.clientX, y: touch.clientY });
     }
-  }, [isPanning, panStart]);
+  }, [isPanning, panStart, isResizingText]);
 
   const handleTouchEnd = useCallback(() => {
     setIsPanning(false);
+    setIsResizingText(false);
   }, []);
 
   if (!file) {

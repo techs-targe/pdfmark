@@ -18,6 +18,7 @@ function App() {
   ]);
   const [activeTabId, setActiveTabId] = useState('tab_1');
   const [windowLayout, setWindowLayout] = useState<WindowLayout>('single');
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [toolSettings, setToolSettings] = useState<ToolSettings>({
     currentTool: 'pen',
     color: '#000000',
@@ -30,6 +31,7 @@ function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const jsonInputRef = useRef<HTMLInputElement>(null);
   const windowManagerRef = useRef<any>(null);
+  const appContainerRef = useRef<HTMLDivElement>(null);
 
   // Get active tab
   const activeTab = useMemo(
@@ -269,6 +271,26 @@ function App() {
     [storage, setAllAnnotations]
   );
 
+  // Toggle fullscreen mode
+  const handleToggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      appContainerRef.current?.requestFullscreen();
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen();
+      setIsFullscreen(false);
+    }
+  }, []);
+
+  // Listen for fullscreen changes
+  React.useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
   // Handle zoom
   const handleZoomIn = useCallback(() => {
     const currentZoom = activeTab.zoomLevel;
@@ -386,6 +408,7 @@ function App() {
   return (
     <ErrorBoundary>
       <div
+        ref={appContainerRef}
         className="flex flex-col h-screen bg-gray-900"
         onDragOver={handleDragOver}
         onDrop={handleDrop}
@@ -417,6 +440,7 @@ function App() {
         windowLayout={windowLayout}
         canUndo={canUndo}
         canRedo={canRedo}
+        isFullscreen={isFullscreen}
         onToolChange={(tool) =>
           setToolSettings((prev) => ({ ...prev, currentTool: tool }))
         }
@@ -438,6 +462,7 @@ function App() {
         onSave={handleSave}
         onLoad={handleLoad}
         onClearAll={clearAllAnnotations}
+        onToggleFullscreen={handleToggleFullscreen}
       />
 
       {/* Window Manager - handles all views with tabs */}

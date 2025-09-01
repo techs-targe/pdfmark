@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   ToolType,
   COLOR_PRESETS,
@@ -18,6 +18,7 @@ interface ToolbarProps {
   windowLayout?: WindowLayout;
   canUndo: boolean;
   canRedo: boolean;
+  isFullscreen?: boolean;
   onToolChange: (tool: ToolType) => void;
   onColorChange: (color: string) => void;
   onLineWidthChange: (width: number) => void;
@@ -29,6 +30,7 @@ interface ToolbarProps {
   onSave: () => void;
   onLoad: () => void;
   onClearAll: () => void;
+  onToggleFullscreen?: () => void;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -40,6 +42,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   windowLayout = 'single',
   canUndo,
   canRedo,
+  isFullscreen = false,
   onToolChange,
   onColorChange,
   onLineWidthChange,
@@ -51,8 +54,19 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onSave,
   onLoad,
   onClearAll,
+  onToggleFullscreen,
 }) => {
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const tools = [
     { id: 'pen', icon: '✏️', label: 'Pen Tool (1)' },
@@ -62,17 +76,63 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     { id: 'select', icon: '👆', label: 'Select Tool (5)' },
   ];
 
+  // Minimal toolbar for fullscreen mode
+  if (isFullscreen) {
+    return (
+      <div className="fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-sm p-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1">
+            {tools.map((tool) => (
+              <button
+                key={tool.id}
+                onClick={() => onToolChange(tool.id as ToolType)}
+                className={clsx('p-1.5 rounded text-xs', {
+                  'bg-blue-600 text-white': currentTool === tool.id,
+                  'text-gray-300 hover:bg-gray-700': currentTool !== tool.id,
+                })}
+                title={tool.label}
+              >
+                {tool.icon}
+              </button>
+            ))}
+          </div>
+          {onToggleFullscreen && (
+            <button
+              onClick={onToggleFullscreen}
+              className="p-1.5 rounded text-gray-300 hover:bg-gray-700"
+              title="Exit Fullscreen"
+            >
+              ❌
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="h-toolbar bg-toolbar-bg text-white border-b border-gray-700 overflow-x-auto">
-      <div className="flex items-center px-4 gap-4 min-w-fit">
+    <div className={clsx('bg-toolbar-bg text-white border-b border-gray-700 overflow-x-auto', {
+      'h-toolbar': !isMobile,
+      'h-12': isMobile,
+    })}>
+      <div className={clsx('flex items-center gap-4 min-w-fit h-full', {
+        'px-4': !isMobile,
+        'px-2 gap-2': isMobile,
+      })}>
         {/* Tools */}
-        <div className="flex items-center gap-2 border-r border-gray-600 pr-4">
+        <div className={clsx('flex items-center border-r border-gray-600', {
+          'gap-2 pr-4': !isMobile,
+          'gap-1 pr-2': isMobile,
+        })}>
         {tools.map((tool) => (
           <button
             key={tool.id}
             onClick={() => onToolChange(tool.id as ToolType)}
-            className={clsx('toolbar-button', {
-              active: currentTool === tool.id,
+            className={clsx({
+              'toolbar-button': !isMobile,
+              'p-1.5 rounded text-sm': isMobile,
+              'active': currentTool === tool.id && !isMobile,
+              'bg-blue-600': currentTool === tool.id && isMobile,
             })}
             title={tool.label}
           >
@@ -83,15 +143,22 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
       {/* Color picker */}
       {(currentTool === 'pen' || currentTool === 'line' || currentTool === 'text') && (
-        <div className="flex items-center gap-2 border-r border-gray-600 pr-4">
-          <span className="text-sm">Color:</span>
+        <div className={clsx('flex items-center border-r border-gray-600', {
+          'gap-2 pr-4': !isMobile,
+          'gap-1 pr-2': isMobile,
+        })}>
+          {!isMobile && <span className="text-sm">Color:</span>}
           <div className="flex gap-1">
-            {COLOR_PRESETS.map((presetColor) => (
+            {COLOR_PRESETS.slice(0, isMobile ? 4 : COLOR_PRESETS.length).map((presetColor) => (
               <button
                 key={presetColor}
                 onClick={() => onColorChange(presetColor)}
-                className={clsx('color-swatch', {
-                  active: color === presetColor,
+                className={clsx({
+                  'color-swatch': !isMobile,
+                  'w-5 h-5 rounded border-2': isMobile,
+                  'active': color === presetColor && !isMobile,
+                  'border-white': color === presetColor && isMobile,
+                  'border-transparent': color !== presetColor && isMobile,
                 })}
                 style={{ backgroundColor: presetColor }}
                 title={presetColor}
@@ -124,7 +191,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       )}
 
       {/* Line width */}
-      {(currentTool === 'pen' || currentTool === 'line') && (
+      {(currentTool === 'pen' || currentTool === 'line') && !isMobile && (
         <div className="flex items-center gap-2 border-r border-gray-600 pr-4">
           <span className="text-sm">Width:</span>
           {LINE_WIDTH_PRESETS.map((width) => (
@@ -142,7 +209,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       )}
 
       {/* Font size */}
-      {currentTool === 'text' && (
+      {currentTool === 'text' && !isMobile && (
         <div className="flex items-center gap-2 border-r border-gray-600 pr-4">
           <span className="text-sm">Font:</span>
           <select
@@ -160,7 +227,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       )}
 
       {/* Eraser size */}
-      {currentTool === 'eraser' && (
+      {currentTool === 'eraser' && !isMobile && (
         <div className="flex items-center gap-2 border-r border-gray-600 pr-4">
           <span className="text-sm">Size:</span>
           {ERASER_SIZE_PRESETS.map((preset) => (
@@ -178,11 +245,17 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       )}
 
       {/* Undo/Redo */}
-      <div className="flex items-center gap-2 border-r border-gray-600 pr-4">
+      <div className={clsx('flex items-center border-r border-gray-600', {
+        'gap-2 pr-4': !isMobile,
+        'gap-1 pr-2': isMobile,
+      })}>
         <button
           onClick={onUndo}
           disabled={!canUndo}
-          className="toolbar-button disabled:opacity-50 disabled:cursor-not-allowed"
+          className={clsx('disabled:opacity-50 disabled:cursor-not-allowed', {
+            'toolbar-button': !isMobile,
+            'p-1.5 rounded text-sm': isMobile,
+          })}
           title="Undo (Ctrl+Z)"
         >
           ↩️
@@ -190,7 +263,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         <button
           onClick={onRedo}
           disabled={!canRedo}
-          className="toolbar-button disabled:opacity-50 disabled:cursor-not-allowed"
+          className={clsx('disabled:opacity-50 disabled:cursor-not-allowed', {
+            'toolbar-button': !isMobile,
+            'p-1.5 rounded text-sm': isMobile,
+          })}
           title="Redo (Ctrl+Y)"
         >
           ↪️
@@ -199,7 +275,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
 
       {/* View Mode */}
-      {onWindowLayoutChange && (
+      {onWindowLayoutChange && !isMobile && (
         <div className="flex items-center gap-2 border-r border-gray-600 pr-4">
           <span className="text-sm">Layout:</span>
           <button
@@ -227,6 +303,25 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         </div>
       )}
 
+      {/* Fullscreen button */}
+      {onToggleFullscreen && (
+        <div className={clsx('border-r border-gray-600', {
+          'pr-4': !isMobile,
+          'pr-2': isMobile,
+        })}>
+          <button
+            onClick={onToggleFullscreen}
+            className={clsx({
+              'toolbar-button': !isMobile,
+              'p-1.5 rounded text-sm': isMobile,
+            })}
+            title="Toggle Fullscreen"
+          >
+            {isFullscreen ? '❌' : '⛶'}
+          </button>
+        </div>
+      )}
+
       {/* Clear all */}
       <div className="ml-auto">
         <button
@@ -235,10 +330,13 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               onClearAll();
             }
           }}
-          className="toolbar-button bg-red-600 hover:bg-red-700"
+          className={clsx('bg-red-600 hover:bg-red-700', {
+            'toolbar-button': !isMobile,
+            'p-1.5 rounded text-sm': isMobile,
+          })}
           title="Clear All Annotations"
         >
-          🗑️ Clear All
+          {isMobile ? '🗑️' : '🗑️ Clear All'}
         </button>
       </div>
       </div>

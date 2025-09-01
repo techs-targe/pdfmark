@@ -60,6 +60,9 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
   // Touch gesture states
   const [touchDistance, setTouchDistance] = useState<number | null>(null);
   const [touchZoomStart, setTouchZoomStart] = useState<number | 'fit-width' | 'fit-page'>(1);
+  const [pinchCenter, setPinchCenter] = useState<{ x: number; y: number } | null>(null);
+  const [lastTap, setLastTap] = useState<{ time: number; y: number } | null>(null);
+  const [isResizingText, setIsResizingText] = useState(false);
 
   // Expose containerRef and totalPages to parent
   useImperativeHandle(ref, () => ({
@@ -355,10 +358,49 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
     return Math.sqrt(dx * dx + dy * dy);
   };
 
+  // Get center point between two touches
+  const getTouchCenter = (touches: React.TouchList) => {
+    if (touches.length < 2) return null;
+    return {
+      x: (touches[0].clientX + touches[1].clientX) / 2,
+      y: (touches[0].clientY + touches[1].clientY) / 2,
+    };
+  };
+
   // Handle touch start for pinch zoom and panning
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    // Check if touching a text resize handle
+    const target = e.target as HTMLElement;
+    if (target.classList.contains('resize-handle')) {
+      setIsResizingText(true);
+      return;
+    }
+
+    // Handle double-tap for page navigation
+    if (e.touches.length === 1) {
+      const now = Date.now();
+      const touch = e.touches[0];
+      const rect = containerRef.current?.getBoundingClientRect();
+      
+      if (rect && lastTap && now - lastTap.time < 300) {
+        // Double tap detected
+        e.preventDefault();
+        const relativeY = touch.clientY - rect.top;
+        const isTopHalf = relativeY < rect.height / 2;
+        
+        if (isTopHalf && currentPage > 1) {
+          onPageChange(currentPage - 1);
+        } else if (!isTopHalf && pdfDoc && currentPage < pdfDoc.numPages) {
+          onPageChange(currentPage + 1);
+        }
+        setLastTap(null);
+      } else {
+        setLastTap({ time: now, y: touch.clientY });
+      }
+    }
+
     // Handle single touch for panning with select tool
-    if (e.touches.length === 1 && currentTool === 'select' && containerRef.current) {
+    if (e.touches.length === 1 && currentTool === 'select' && containerRef.current && !isResizingText) {
       const touch = e.touches[0];
       setIsPanning(true);
       setPanStart({ x: touch.clientX, y: touch.clientY });
@@ -367,15 +409,24 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
     else if (e.touches.length === 2 && onZoomChange) {
       e.preventDefault();
       const distance = getTouchDistance(e.touches);
+      const center = getTouchCenter(e.touches);
       setTouchDistance(distance);
       setTouchZoomStart(zoomLevel);
+      setPinchCenter(center);
       // Stop panning if it was active
       setIsPanning(false);
     }
-  }, [zoomLevel, onZoomChange, currentTool]);
+  }, [zoomLevel, onZoomChange, currentTool, currentPage, pdfDoc, onPageChange, lastTap, isResizingText]);
 
   // Handle touch move for pinch zoom and panning
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    // Prevent PDF movement if resizing text
+    if (isResizingText) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+
     // Handle single touch panning
     if (e.touches.length === 1 && isPanning && containerRef.current) {
       const touch = e.touches[0];
@@ -387,24 +438,53 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
       
       setPanStart({ x: touch.clientX, y: touch.clientY });
     }
-    // Handle two-finger pinch zoom
-    else if (e.touches.length === 2 && touchDistance && onZoomChange) {
+    // Handle two-finger pinch zoom with center point
+    else if (e.touches.length === 2 && touchDistance && onZoomChange && pinchCenter && containerRef.current) {
       e.preventDefault();
       const newDistance = getTouchDistance(e.touches);
-      if (!newDistance) return;
+      const newCenter = getTouchCenter(e.touches);
+      if (!newDistance || !newCenter) return;
       
       const scale = newDistance / touchDistance;
       let baseZoom = typeof touchZoomStart === 'number' ? touchZoomStart : 1;
       let newZoom = Math.max(0.25, Math.min(8, baseZoom * scale));
       
-      onZoomChange(newZoom);
+      // Calculate scroll adjustment to keep pinch center point fixed
+      if (typeof newZoom === 'number' && typeof touchZoomStart === 'number') {
+        const rect = containerRef.current.getBoundingClientRect();
+        const scrollLeft = containerRef.current.scrollLeft;
+        const scrollTop = containerRef.current.scrollTop;
+        
+        // Get the pinch center relative to the viewport
+        const centerX = pinchCenter.x - rect.left;
+        const centerY = pinchCenter.y - rect.top;
+        
+        // Calculate the point in the document that should stay fixed
+        const docX = (scrollLeft + centerX) / touchZoomStart;
+        const docY = (scrollTop + centerY) / touchZoomStart;
+        
+        // Update zoom
+        onZoomChange(newZoom);
+        
+        // Adjust scroll to keep the center point fixed
+        requestAnimationFrame(() => {
+          if (containerRef.current) {
+            containerRef.current.scrollLeft = docX * newZoom - centerX;
+            containerRef.current.scrollTop = docY * newZoom - centerY;
+          }
+        });
+      } else {
+        onZoomChange(newZoom);
+      }
     }
-  }, [touchDistance, touchZoomStart, onZoomChange, isPanning, panStart]);
+  }, [touchDistance, touchZoomStart, onZoomChange, isPanning, panStart, pinchCenter, isResizingText]);
 
   // Handle touch end
   const handleTouchEnd = useCallback(() => {
     setTouchDistance(null);
     setIsPanning(false);
+    setPinchCenter(null);
+    setIsResizingText(false);
   }, []);
 
   if (!file) {
