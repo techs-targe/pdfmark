@@ -355,19 +355,40 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
     return Math.sqrt(dx * dx + dy * dy);
   };
 
-  // Handle touch start for pinch zoom
+  // Handle touch start for pinch zoom and panning
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (e.touches.length === 2 && onZoomChange) {
+    // Handle single touch for panning with select tool
+    if (e.touches.length === 1 && currentTool === 'select' && containerRef.current) {
+      const touch = e.touches[0];
+      setIsPanning(true);
+      setPanStart({ x: touch.clientX, y: touch.clientY });
+    }
+    // Handle two-finger pinch zoom
+    else if (e.touches.length === 2 && onZoomChange) {
       e.preventDefault();
       const distance = getTouchDistance(e.touches);
       setTouchDistance(distance);
       setTouchZoomStart(zoomLevel);
+      // Stop panning if it was active
+      setIsPanning(false);
     }
-  }, [zoomLevel, onZoomChange]);
+  }, [zoomLevel, onZoomChange, currentTool]);
 
-  // Handle touch move for pinch zoom
+  // Handle touch move for pinch zoom and panning
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (e.touches.length === 2 && touchDistance && onZoomChange) {
+    // Handle single touch panning
+    if (e.touches.length === 1 && isPanning && containerRef.current) {
+      const touch = e.touches[0];
+      const deltaX = touch.clientX - panStart.x;
+      const deltaY = touch.clientY - panStart.y;
+      
+      containerRef.current.scrollLeft -= deltaX;
+      containerRef.current.scrollTop -= deltaY;
+      
+      setPanStart({ x: touch.clientX, y: touch.clientY });
+    }
+    // Handle two-finger pinch zoom
+    else if (e.touches.length === 2 && touchDistance && onZoomChange) {
       e.preventDefault();
       const newDistance = getTouchDistance(e.touches);
       if (!newDistance) return;
@@ -378,11 +399,12 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
       
       onZoomChange(newZoom);
     }
-  }, [touchDistance, touchZoomStart, onZoomChange]);
+  }, [touchDistance, touchZoomStart, onZoomChange, isPanning, panStart]);
 
   // Handle touch end
   const handleTouchEnd = useCallback(() => {
     setTouchDistance(null);
+    setIsPanning(false);
   }, []);
 
   if (!file) {

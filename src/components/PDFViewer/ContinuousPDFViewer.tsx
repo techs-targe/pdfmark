@@ -403,6 +403,33 @@ export const ContinuousPDFViewer = memo<SimplePDFViewerProps>(({
     }
   }, [isPanning]);
 
+  // Handle touch events for mobile panning
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    // Handle single touch for panning with select tool
+    if (e.touches.length === 1 && currentTool === 'select' && containerRef.current) {
+      const touch = e.touches[0];
+      setIsPanning(true);
+      setPanStart({ x: touch.clientX, y: touch.clientY });
+    }
+  }, [currentTool]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 1 && isPanning && containerRef.current) {
+      const touch = e.touches[0];
+      const deltaX = panStart.x - touch.clientX;
+      const deltaY = panStart.y - touch.clientY;
+      
+      containerRef.current.scrollLeft += deltaX;
+      containerRef.current.scrollTop += deltaY;
+      
+      setPanStart({ x: touch.clientX, y: touch.clientY });
+    }
+  }, [isPanning, panStart]);
+
+  const handleTouchEnd = useCallback(() => {
+    setIsPanning(false);
+  }, []);
+
   if (!file) {
     return (
       <div className="flex items-center justify-center h-full bg-pdf-bg text-gray-400">
@@ -437,6 +464,9 @@ export const ContinuousPDFViewer = memo<SimplePDFViewerProps>(({
         onMouseMove={isPanning ? handleMouseMove : undefined}
         onMouseUp={isPanning ? handleMouseUp : undefined}
         onMouseLeave={isPanning ? handleMouseUp : undefined}
+        onTouchStart={currentTool === 'select' ? handleTouchStart : undefined}
+        onTouchMove={isPanning ? handleTouchMove : undefined}
+        onTouchEnd={isPanning ? handleTouchEnd : undefined}
       >
         {/* Continuous pages container */}
         <div 
