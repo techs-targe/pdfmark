@@ -807,6 +807,17 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
     setIsDraggingDividerH(true);
   }, []);
 
+  // Handle divider touch events for mobile
+  const handleDividerTouchStart = useCallback((e: React.TouchEvent) => {
+    e.preventDefault();
+    setIsDraggingDivider(true);
+  }, []);
+
+  const handleDividerHTouchStart = useCallback((e: React.TouchEvent) => {
+    e.preventDefault();
+    setIsDraggingDividerH(true);
+  }, []);
+
   const handleDividerMouseMove = useCallback((e: MouseEvent) => {
     if (!isDraggingDivider && !isDraggingDividerH) return;
     
@@ -837,11 +848,50 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
     setIsDraggingDividerH(false);
   }, []);
 
-  // Set up and tear down mouse event listeners for divider dragging
+  // Touch event handlers for mobile
+  const handleDividerTouchMove = useCallback((e: TouchEvent) => {
+    if (!isDraggingDivider && !isDraggingDividerH) return;
+    if (e.touches.length !== 1) return;
+    
+    const touch = e.touches[0];
+    const container = document.querySelector('.window-manager-container');
+    if (!container) return;
+    
+    const rect = container.getBoundingClientRect();
+    let newRatio: number;
+    
+    if (isDraggingDivider) {
+      if (layout === 'vertical' || layout === 'tile') {
+        newRatio = (touch.clientX - rect.left) / rect.width;
+        setSplitRatio(Math.max(0.1, Math.min(0.9, newRatio)));
+      } else if (layout === 'horizontal') {
+        newRatio = (touch.clientY - rect.top) / rect.height;
+        setSplitRatio(Math.max(0.1, Math.min(0.9, newRatio)));
+      }
+    }
+    
+    if (isDraggingDividerH && layout === 'tile') {
+      newRatio = (touch.clientY - rect.top) / rect.height;
+      setSplitRatioH(Math.max(0.1, Math.min(0.9, newRatio)));
+    }
+  }, [isDraggingDivider, isDraggingDividerH, layout]);
+
+  const handleDividerTouchEnd = useCallback(() => {
+    setIsDraggingDivider(false);
+    setIsDraggingDividerH(false);
+  }, []);
+
+  // Set up and tear down mouse and touch event listeners for divider dragging
   React.useEffect(() => {
     if (isDraggingDivider || isDraggingDividerH) {
+      // Mouse events
       document.addEventListener('mousemove', handleDividerMouseMove);
       document.addEventListener('mouseup', handleDividerMouseUp);
+      
+      // Touch events for mobile
+      document.addEventListener('touchmove', handleDividerTouchMove, { passive: false });
+      document.addEventListener('touchend', handleDividerTouchEnd);
+      document.addEventListener('touchcancel', handleDividerTouchEnd);
       
       if (isDraggingDivider) {
         document.body.style.cursor = (layout === 'vertical' || layout === 'tile') ? 'col-resize' : 'row-resize';
@@ -853,11 +903,14 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
       return () => {
         document.removeEventListener('mousemove', handleDividerMouseMove);
         document.removeEventListener('mouseup', handleDividerMouseUp);
+        document.removeEventListener('touchmove', handleDividerTouchMove);
+        document.removeEventListener('touchend', handleDividerTouchEnd);
+        document.removeEventListener('touchcancel', handleDividerTouchEnd);
         document.body.style.cursor = 'default';
         document.body.style.userSelect = 'auto';
       };
     }
-  }, [isDraggingDivider, isDraggingDividerH, handleDividerMouseMove, handleDividerMouseUp, layout]);
+  }, [isDraggingDivider, isDraggingDividerH, handleDividerMouseMove, handleDividerMouseUp, handleDividerTouchMove, handleDividerTouchEnd, layout]);
 
   const renderLayout = () => {
     switch (layout) {
@@ -880,12 +933,13 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
             
             {/* Draggable divider */}
             <div
-              className="absolute top-0 bottom-0 w-2 hover:w-3 bg-gray-600 hover:bg-blue-500 cursor-col-resize z-20 transition-all"
+              className="absolute top-0 bottom-0 w-2 hover:w-3 bg-gray-600 hover:bg-blue-500 cursor-col-resize z-20 transition-all touch-none"
               style={{ 
                 left: `calc(${splitRatio * 100}% - 4px)`,
                 transition: isDraggingDivider ? 'none' : 'all 0.2s'
               }}
               onMouseDown={handleDividerMouseDown}
+              onTouchStart={handleDividerTouchStart}
               title="Drag to resize panes"
             >
               <div className="absolute inset-0 flex items-center justify-center">
@@ -922,6 +976,7 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
                 transition: isDraggingDivider ? 'none' : 'all 0.2s'
               }}
               onMouseDown={handleDividerMouseDown}
+              onTouchStart={handleDividerTouchStart}
               title="Drag to resize panes"
             >
               <div className="absolute inset-0 flex items-center justify-center">
@@ -966,6 +1021,7 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
                 transition: isDraggingDividerH ? 'none' : 'all 0.2s'
               }}
               onMouseDown={handleDividerHMouseDown}
+              onTouchStart={handleDividerHTouchStart}
               title="Drag to resize panes"
             >
               <div className="absolute inset-0 flex items-center justify-center">
@@ -984,6 +1040,7 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
                 transition: isDraggingDivider ? 'none' : 'all 0.2s'
               }}
               onMouseDown={handleDividerMouseDown}
+              onTouchStart={handleDividerTouchStart}
               title="Drag to resize panes"
             >
               <div className="absolute inset-0 flex items-center justify-center">

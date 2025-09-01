@@ -348,7 +348,7 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
   }, []);
 
   // Calculate distance between two touch points
-  const getTouchDistance = (touches: TouchList) => {
+  const getTouchDistance = (touches: React.TouchList) => {
     if (touches.length < 2) return null;
     const dx = touches[0].clientX - touches[1].clientX;
     const dy = touches[0].clientY - touches[1].clientY;
@@ -478,14 +478,15 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
       </div>
     </div>
 
-    {/* Page navigation - fixed within parent */}
-    <div className="absolute bottom-4 right-4 flex gap-2 z-30">
+    {/* Page navigation - fixed within parent, mobile-friendly */}
+    <div className="absolute bottom-4 right-4 left-4 flex justify-end gap-2 z-30 pointer-events-none">
+      <div className="flex gap-2 pointer-events-auto bg-white/90 backdrop-blur-sm rounded-lg p-2 shadow-lg">
         <button
           onClick={() => goToPage(currentPage - 1)}
           disabled={currentPage <= 1}
-          className="button-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+          className="button-secondary disabled:opacity-50 disabled:cursor-not-allowed min-w-[60px] text-sm md:text-base"
         >
-          Previous
+          Prev
         </button>
         {showPageJump ? (
           <div className="flex items-center gap-1">
@@ -517,7 +518,7 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
               setShowPageJump(true);
               setPageJumpValue(currentPage.toString());
             }}
-            className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700 transition-colors"
+            className="bg-gray-800 text-white px-3 py-2 rounded hover:bg-gray-700 transition-colors text-sm md:text-base"
           >
             {currentPage} / {pdfDoc?.numPages || 0}
           </button>
@@ -525,11 +526,12 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
         <button
           onClick={() => goToPage(currentPage + 1)}
           disabled={!pdfDoc || currentPage >= pdfDoc.numPages}
-          className="button-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+          className="button-secondary disabled:opacity-50 disabled:cursor-not-allowed min-w-[60px] text-sm md:text-base"
         >
           Next
         </button>
       </div>
+    </div>
     </div>
   );
 }));

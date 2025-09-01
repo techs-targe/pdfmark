@@ -81,12 +81,37 @@ export const ResizableText: React.FC<ResizableTextProps> = ({
     });
   }, [screenPos, boxWidth, boxHeight]);
 
+  const handleTouchStart = useCallback((e: React.TouchEvent, handle: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const touch = e.touches[0];
+    setIsResizing(true);
+    setResizeHandle(handle);
+    setStartPos({ x: touch.clientX, y: touch.clientY });
+    setOriginalBox({
+      x: screenPos.x,
+      y: screenPos.y,
+      width: boxWidth,
+      height: boxHeight,
+    });
+  }, [screenPos, boxWidth, boxHeight]);
+
   // Handle drag move
-  const handleDragMove = useCallback((e: MouseEvent | React.MouseEvent) => {
+  const handleDragMove = useCallback((e: MouseEvent | React.MouseEvent | TouchEvent | React.TouchEvent) => {
     if (!isDragging || !onUpdate) return;
     
-    const clientX = 'clientX' in e ? e.clientX : 0;
-    const clientY = 'clientY' in e ? e.clientY : 0;
+    let clientX: number;
+    let clientY: number;
+    
+    if ('touches' in e && e.touches.length > 0) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else if ('clientX' in e) {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    } else {
+      return;
+    }
     
     const deltaX = clientX - startPos.x;
     const deltaY = clientY - startPos.y;
@@ -102,11 +127,24 @@ export const ResizableText: React.FC<ResizableTextProps> = ({
     }
   }, [isDragging, startPos, originalBox, canvasWidth, canvasHeight, onUpdate, annotation.id]);
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
+  const handleMouseMove = useCallback((e: MouseEvent | TouchEvent) => {
     if (!isResizing || !resizeHandle || !onUpdate) return;
 
-    const deltaX = e.clientX - startPos.x;
-    const deltaY = e.clientY - startPos.y;
+    let clientX: number;
+    let clientY: number;
+    
+    if ('touches' in e && e.touches.length > 0) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else if ('clientX' in e) {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    } else {
+      return;
+    }
+
+    const deltaX = clientX - startPos.x;
+    const deltaY = clientY - startPos.y;
 
     let newX = originalBox.x;
     let newY = originalBox.y;
@@ -185,11 +223,23 @@ export const ResizableText: React.FC<ResizableTextProps> = ({
         }
       };
       
+      const handleGlobalTouchMove = (e: TouchEvent) => {
+        if (isResizing) {
+          handleMouseMove(e);
+        } else if (isDragging) {
+          handleDragMove(e);
+        }
+      };
+      
       document.addEventListener('mousemove', handleGlobalMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('touchmove', handleGlobalTouchMove, { passive: false });
+      document.addEventListener('touchend', handleMouseUp);
       return () => {
         document.removeEventListener('mousemove', handleGlobalMouseMove);
         document.removeEventListener('mouseup', handleMouseUp);
+        document.removeEventListener('touchmove', handleGlobalTouchMove);
+        document.removeEventListener('touchend', handleMouseUp);
       };
     }
   }, [isResizing, isDragging, handleMouseMove, handleDragMove, handleMouseUp]);
@@ -206,6 +256,26 @@ export const ResizableText: React.FC<ResizableTextProps> = ({
     e.stopPropagation();
     setIsDragging(true);
     setStartPos({ x: e.clientX, y: e.clientY });
+    setOriginalBox({
+      x: screenPos.x,
+      y: screenPos.y,
+      width: boxWidth,
+      height: boxHeight,
+    });
+  }, [isSelected, screenPos, boxWidth, boxHeight]);
+
+  const handleContainerTouchStart = useCallback((e: React.TouchEvent) => {
+    if (!isSelected) return;
+    
+    // Check if touching a resize handle
+    const target = e.target as HTMLElement;
+    if (target.classList.contains('resize-handle')) return;
+    
+    e.preventDefault();
+    e.stopPropagation();
+    const touch = e.touches[0];
+    setIsDragging(true);
+    setStartPos({ x: touch.clientX, y: touch.clientY });
     setOriginalBox({
       x: screenPos.x,
       y: screenPos.y,
@@ -234,8 +304,11 @@ export const ResizableText: React.FC<ResizableTextProps> = ({
         if (onEdit) onEdit();
       }}
       onMouseDown={handleContainerMouseDown}
+      onTouchStart={handleContainerTouchStart}
       onMouseMove={(e) => handleDragMove(e)}
+      onTouchMove={(e) => handleDragMove(e)}
       onMouseUp={handleMouseUp}
+      onTouchEnd={handleMouseUp}
     >
 
       {/* Selection box and resize handles */}
@@ -260,17 +333,21 @@ export const ResizableText: React.FC<ResizableTextProps> = ({
             { name: 's', cursor: 's-resize', bottom: -4, left: '50%', transform: 'translateX(-50%)' },
             { name: 'w', cursor: 'w-resize', left: -4, top: '50%', transform: 'translateY(-50%)' },
             { name: 'e', cursor: 'e-resize', right: -4, top: '50%', transform: 'translateY(-50%)' },
-          ].map((handle) => (
-            <div
-              key={handle.name}
-              className="resize-handle absolute w-2 h-2 bg-blue-500"
-              style={{
-                cursor: handle.cursor,
-                ...handle,
-              }}
-              onMouseDown={(e) => handleMouseDown(e, handle.name)}
-            />
-          ))}
+          ].map((handle) => {
+            const { name, cursor, ...styleProps } = handle;
+            return (
+              <div
+                key={name}
+                className="resize-handle absolute w-2 h-2 bg-blue-500"
+                style={{
+                  cursor,
+                  ...styleProps,
+                }}
+                onMouseDown={(e) => handleMouseDown(e, name)}
+                onTouchStart={(e) => handleTouchStart(e, name)}
+              />
+            );
+          })}
         </>
       )}
     </div>

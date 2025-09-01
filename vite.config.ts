@@ -17,10 +17,26 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       outDir: 'dist',
-      sourcemap: false
+      sourcemap: false,
+      rollupOptions: {
+        output: {
+          // Force .js extension instead of .mjs for worker files
+          entryFileNames: 'assets/[name]-[hash].js',
+          chunkFileNames: 'assets/[name]-[hash].js',
+          assetFileNames: (assetInfo) => {
+            // Rename .mjs to .js for worker files
+            if (assetInfo.name?.endsWith('.mjs')) {
+              return 'assets/[name]-[hash].js'
+            }
+            return 'assets/[name]-[hash][extname]'
+          }
+        }
+      }
     },
     optimizeDeps: {
       include: ['pdfjs-dist']
-    }
+    },
+    // Copy and rename worker file
+    publicDir: 'public'
   }
 })
