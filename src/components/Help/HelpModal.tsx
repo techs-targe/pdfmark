@@ -1,4 +1,5 @@
 import React from 'react';
+import { APP_INFO } from '../../config/version';
 
 interface HelpModalProps {
   isOpen: boolean;
@@ -53,7 +54,12 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl max-h-[80vh] overflow-auto m-4">
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">PDFMark Help - Keyboard Shortcuts</h2>
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">{APP_INFO.name} Help - Keyboard Shortcuts</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Version {APP_INFO.version} • Build {APP_INFO.buildDate}
+            </p>
+          </div>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -86,7 +92,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
             ))}
           </div>
           
-          <div className="mt-6 pt-4 border-t border-gray-200">
+          <div className="mt-6 pt-4 border-t border-gray-200 space-y-4">
             <div className="bg-blue-50 p-4 rounded-lg">
               <h4 className="font-medium text-blue-800 mb-2">💡 Stylus Pen Usage Tips</h4>
               <ul className="text-sm text-blue-700 space-y-1">
@@ -94,6 +100,27 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
                 <li>• 2-finger pinch is disabled, use 4-finger pinch for zooming instead</li>
                 <li>• Right-click to quickly switch between pen and eraser tools</li>
               </ul>
+            </div>
+            
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h4 className="font-medium text-gray-800 mb-2">📋 Application Information</h4>
+              <div className="text-sm text-gray-600 space-y-1">
+                <div className="flex justify-between">
+                  <span>Tool Name:</span>
+                  <span className="font-mono">{APP_INFO.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Version:</span>
+                  <span className="font-mono">v{APP_INFO.version}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Build Date:</span>
+                  <span className="font-mono">{APP_INFO.buildDate}</span>
+                </div>
+                <div className="pt-2 border-t border-gray-300 text-center">
+                  <span className="text-xs text-gray-500">{APP_INFO.description}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
