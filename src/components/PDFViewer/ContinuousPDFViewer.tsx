@@ -3,6 +3,7 @@ import { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
 import { pdfjsLib } from '../../utils/pdfjs-init';
 import { AnnotationLayer } from '../AnnotationLayer/AnnotationLayer';
 import { Annotation, ToolType } from '../../types';
+import { APP_INFO } from '../../config/version';
 
 interface SimplePDFViewerProps {
   file: File | null;
@@ -571,7 +572,7 @@ export const ContinuousPDFViewer = memo<SimplePDFViewerProps>(({
   if (!file) {
     return (
       <div className="flex items-center justify-center h-full bg-pdf-bg text-gray-400">
-        <div className="text-center">
+        <div className="text-center max-w-md">
           <svg
             className="w-24 h-24 mx-auto mb-4"
             fill="none"
@@ -585,8 +586,30 @@ export const ContinuousPDFViewer = memo<SimplePDFViewerProps>(({
               d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
             />
           </svg>
-          <p className="text-lg">No PDF loaded</p>
-          <p className="text-sm mt-2">Drag and drop a PDF file or click to select</p>
+          <h2 className="text-xl font-semibold mb-2">{APP_INFO.name}</h2>
+          <p className="text-lg mb-2">このタブにはPDFが読み込まれていません</p>
+          <p className="text-sm mb-6">PDFファイルをドラッグ&ドロップするか、クリックして選択してください</p>
+          
+          <div className="bg-gray-800/50 rounded-lg p-4 text-xs space-y-2">
+            <div className="border-b border-gray-600 pb-2 mb-2">
+              <h3 className="text-gray-300 font-medium mb-1">アプリケーション情報</h3>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">ツール名:</span>
+              <span className="text-white">{APP_INFO.name}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">バージョン:</span>
+              <span className="text-white">v{APP_INFO.version}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">ビルド日:</span>
+              <span className="text-white">{APP_INFO.buildDate}</span>
+            </div>
+            <div className="text-center pt-2 border-t border-gray-600">
+              <span className="text-gray-400 text-xs">{APP_INFO.description}</span>
+            </div>
+          </div>
         </div>
       </div>
     );

@@ -7,6 +7,7 @@ import {
   ERASER_SIZE_PRESETS,
   WindowLayout,
 } from '../../types';
+import { HelpModal } from '../Help/HelpModal';
 import clsx from 'clsx';
 
 interface ToolbarProps {
@@ -57,6 +58,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onToggleFullscreen,
 }) => {
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -79,34 +81,46 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   // Minimal toolbar for fullscreen mode
   if (isFullscreen) {
     return (
-      <div className="fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-sm p-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1">
-            {tools.map((tool) => (
+      <>
+        <div className="fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-sm p-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1">
+              {tools.map((tool) => (
+                <button
+                  key={tool.id}
+                  onClick={() => onToolChange(tool.id as ToolType)}
+                  className={clsx('p-1.5 rounded text-xs', {
+                    'bg-blue-600 text-white': currentTool === tool.id,
+                    'text-gray-300 hover:bg-gray-700': currentTool !== tool.id,
+                  })}
+                  title={tool.label}
+                >
+                  {tool.icon}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1">
               <button
-                key={tool.id}
-                onClick={() => onToolChange(tool.id as ToolType)}
-                className={clsx('p-1.5 rounded text-xs', {
-                  'bg-blue-600 text-white': currentTool === tool.id,
-                  'text-gray-300 hover:bg-gray-700': currentTool !== tool.id,
-                })}
-                title={tool.label}
+                onClick={() => setShowHelp(true)}
+                className="p-1.5 rounded text-gray-300 hover:bg-gray-700"
+                title="ヘルプ"
               >
-                {tool.icon}
+                ❓
               </button>
-            ))}
+              {onToggleFullscreen && (
+                <button
+                  onClick={onToggleFullscreen}
+                  className="p-1.5 rounded text-gray-300 hover:bg-gray-700"
+                  title="Exit Fullscreen"
+                >
+                  ❌
+                </button>
+              )}
+            </div>
           </div>
-          {onToggleFullscreen && (
-            <button
-              onClick={onToggleFullscreen}
-              className="p-1.5 rounded text-gray-300 hover:bg-gray-700"
-              title="Exit Fullscreen"
-            >
-              ❌
-            </button>
-          )}
         </div>
-      </div>
+        <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
+      </>
     );
   }
 
@@ -303,6 +317,23 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         </div>
       )}
 
+      {/* Help button */}
+      <div className={clsx('border-r border-gray-600', {
+        'pr-4': !isMobile,
+        'pr-2': isMobile,
+      })}>
+        <button
+          onClick={() => setShowHelp(true)}
+          className={clsx({
+            'toolbar-button': !isMobile,
+            'p-1.5 rounded text-sm': isMobile,
+          })}
+          title="ヘルプ"
+        >
+          ❓
+        </button>
+      </div>
+
       {/* Fullscreen button */}
       {onToggleFullscreen && (
         <div className={clsx('border-r border-gray-600', {
@@ -340,6 +371,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         </button>
       </div>
       </div>
+      <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
     </div>
   );
 };

@@ -8,6 +8,9 @@ export default defineConfig(({ mode }) => {
   
   return {
     plugins: [react()],
+    define: {
+      __BUILD_DATE__: JSON.stringify(new Date().toISOString().split('T')[0])
+    },
     // Use base path from environment variable, default to '/'
     base: env.VITE_BASE_PATH || '/',
     server: {
