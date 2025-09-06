@@ -24,6 +24,7 @@ interface SimplePDFViewerProps {
   onAnnotationUpdate?: (annotationId: string, updates: Partial<Annotation>) => void;
   onScrollChange?: (position: { x: number; y: number }) => void;
   onZoomChange?: (zoom: number | 'fit-width' | 'fit-page') => void;
+  onToolChange?: (tool: ToolType) => void;
 }
 
 export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
@@ -41,6 +42,7 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
   onAnnotationUpdate,
   onScrollChange,
   onZoomChange,
+  onToolChange,
 }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const pdfCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -61,8 +63,11 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
   const [touchDistance, setTouchDistance] = useState<number | null>(null);
   const [touchZoomStart, setTouchZoomStart] = useState<number | 'fit-width' | 'fit-page'>(1);
   const [pinchCenter, setPinchCenter] = useState<{ x: number; y: number } | null>(null);
-  const [lastTap, setLastTap] = useState<{ time: number; y: number } | null>(null);
+  const [lastThreeFingerTap, setLastThreeFingerTap] = useState<{ time: number; y: number } | null>(null);
+  const [lastFiveFingerTap, setLastFiveFingerTap] = useState<{ time: number } | null>(null);
   const [isResizingText, setIsResizingText] = useState(false);
+  const [threeFingerPanning, setThreeFingerPanning] = useState(false);
+  const [threeFingerPanStart, setThreeFingerPanStart] = useState<{ x: number; y: number } | null>(null);
 
   // Expose containerRef and totalPages to parent
   useImperativeHandle(ref, () => ({
@@ -358,16 +363,37 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
     return Math.sqrt(dx * dx + dy * dy);
   };
 
-  // Get center point between two touches
+  // Get center point between touches
   const getTouchCenter = (touches: React.TouchList) => {
     if (touches.length < 2) return null;
+    let totalX = 0;
+    let totalY = 0;
+    for (let i = 0; i < touches.length; i++) {
+      totalX += touches[i].clientX;
+      totalY += touches[i].clientY;
+    }
     return {
-      x: (touches[0].clientX + touches[1].clientX) / 2,
-      y: (touches[0].clientY + touches[1].clientY) / 2,
+      x: totalX / touches.length,
+      y: totalY / touches.length,
     };
   };
 
-  // Handle touch start for pinch zoom and panning
+  // Calculate distance between multiple touches (for 4-finger pinch)
+  const getMultiTouchDistance = (touches: React.TouchList) => {
+    if (touches.length < 4) return null;
+    const center = getTouchCenter(touches);
+    if (!center) return null;
+    
+    let totalDistance = 0;
+    for (let i = 0; i < touches.length; i++) {
+      const dx = touches[i].clientX - center.x;
+      const dy = touches[i].clientY - center.y;
+      totalDistance += Math.sqrt(dx * dx + dy * dy);
+    }
+    return totalDistance / touches.length;
+  };
+
+  // Handle touch start for gesture recognition
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     // Check if touching a text resize handle
     const target = e.target as HTMLElement;
@@ -376,49 +402,69 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
       return;
     }
 
-    // Handle double-tap for page navigation
-    if (e.touches.length === 1) {
-      const now = Date.now();
-      const touch = e.touches[0];
+    const touchCount = e.touches.length;
+    const now = Date.now();
+
+    // Handle 3-finger gestures
+    if (touchCount === 3) {
       const rect = containerRef.current?.getBoundingClientRect();
-      
-      if (rect && lastTap && now - lastTap.time < 300) {
-        // Double tap detected
-        e.preventDefault();
-        const relativeY = touch.clientY - rect.top;
-        const isTopHalf = relativeY < rect.height / 2;
-        
-        if (isTopHalf && currentPage > 1) {
-          onPageChange(currentPage - 1);
-        } else if (!isTopHalf && pdfDoc && currentPage < pdfDoc.numPages) {
-          onPageChange(currentPage + 1);
+      if (rect) {
+        const centerY = getTouchCenter(e.touches)?.y;
+        if (centerY && lastThreeFingerTap && now - lastThreeFingerTap.time < 300) {
+          // 3-finger double tap for page navigation
+          e.preventDefault();
+          const relativeY = centerY - rect.top;
+          const isTopHalf = relativeY < rect.height / 2;
+          
+          if (isTopHalf && currentPage > 1) {
+            onPageChange(currentPage - 1);
+          } else if (!isTopHalf && pdfDoc && currentPage < pdfDoc.numPages) {
+            onPageChange(currentPage + 1);
+          }
+          setLastThreeFingerTap(null);
+        } else {
+          // Set up for potential double tap or swipe
+          if (centerY) {
+            setLastThreeFingerTap({ time: now, y: centerY });
+          }
+          // Also prepare for 3-finger swipe
+          const center = getTouchCenter(e.touches);
+          if (center) {
+            setThreeFingerPanning(true);
+            setThreeFingerPanStart(center);
+          }
         }
-        setLastTap(null);
-      } else {
-        setLastTap({ time: now, y: touch.clientY });
       }
     }
-
-    // Handle single touch for panning with select tool
-    if (e.touches.length === 1 && currentTool === 'select' && containerRef.current && !isResizingText) {
-      const touch = e.touches[0];
-      setIsPanning(true);
-      setPanStart({ x: touch.clientX, y: touch.clientY });
-    }
-    // Handle two-finger pinch zoom
-    else if (e.touches.length === 2 && onZoomChange) {
+    // Handle 4-finger pinch zoom
+    else if (touchCount === 4 && onZoomChange) {
       e.preventDefault();
-      const distance = getTouchDistance(e.touches);
+      const distance = getMultiTouchDistance(e.touches);
       const center = getTouchCenter(e.touches);
       setTouchDistance(distance);
       setTouchZoomStart(zoomLevel);
       setPinchCenter(center);
-      // Stop panning if it was active
-      setIsPanning(false);
     }
-  }, [zoomLevel, onZoomChange, currentTool, currentPage, pdfDoc, onPageChange, lastTap, isResizingText]);
+    // Handle 5-finger gestures
+    else if (touchCount === 5) {
+      if (lastFiveFingerTap && now - lastFiveFingerTap.time < 300) {
+        // 5-finger double tap for fit-to-width
+        e.preventDefault();
+        onZoomChange('fit-width');
+        setLastFiveFingerTap(null);
+      } else {
+        setLastFiveFingerTap({ time: now });
+      }
+    }
+    // Handle single touch for panning with select tool
+    else if (touchCount === 1 && currentTool === 'select' && containerRef.current && !isResizingText) {
+      const touch = e.touches[0];
+      setIsPanning(true);
+      setPanStart({ x: touch.clientX, y: touch.clientY });
+    }
+  }, [zoomLevel, onZoomChange, currentTool, currentPage, pdfDoc, onPageChange, lastThreeFingerTap, lastFiveFingerTap, isResizingText]);
 
-  // Handle touch move for pinch zoom and panning
+  // Handle touch move for gestures
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     // Prevent PDF movement if resizing text
     if (isResizingText) {
@@ -427,8 +473,24 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
       return;
     }
 
-    // Handle single touch panning
-    if (e.touches.length === 1 && isPanning && containerRef.current) {
+    const touchCount = e.touches.length;
+
+    // Handle 3-finger swipe for PDF movement
+    if (touchCount === 3 && threeFingerPanning && threeFingerPanStart && containerRef.current) {
+      e.preventDefault();
+      const center = getTouchCenter(e.touches);
+      if (center) {
+        const deltaX = center.x - threeFingerPanStart.x;
+        const deltaY = center.y - threeFingerPanStart.y;
+        
+        containerRef.current.scrollLeft -= deltaX;
+        containerRef.current.scrollTop -= deltaY;
+        
+        setThreeFingerPanStart(center);
+      }
+    }
+    // Handle single touch panning (select tool only)
+    else if (touchCount === 1 && isPanning && containerRef.current) {
       const touch = e.touches[0];
       const deltaX = touch.clientX - panStart.x;
       const deltaY = touch.clientY - panStart.y;
@@ -438,10 +500,10 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
       
       setPanStart({ x: touch.clientX, y: touch.clientY });
     }
-    // Handle two-finger pinch zoom with center point
-    else if (e.touches.length === 2 && touchDistance && onZoomChange && pinchCenter && containerRef.current) {
+    // Handle 4-finger pinch zoom
+    else if (touchCount === 4 && touchDistance && onZoomChange && pinchCenter && containerRef.current) {
       e.preventDefault();
-      const newDistance = getTouchDistance(e.touches);
+      const newDistance = getMultiTouchDistance(e.touches);
       const newCenter = getTouchCenter(e.touches);
       if (!newDistance || !newCenter) return;
       
@@ -449,24 +511,21 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
       let baseZoom = typeof touchZoomStart === 'number' ? touchZoomStart : 1;
       let newZoom = Math.max(0.25, Math.min(8, baseZoom * scale));
       
-      // Calculate scroll adjustment to keep pinch center point fixed
+      // Calculate scroll adjustment for zoom
       if (typeof newZoom === 'number' && typeof touchZoomStart === 'number') {
         const rect = containerRef.current.getBoundingClientRect();
         const scrollLeft = containerRef.current.scrollLeft;
         const scrollTop = containerRef.current.scrollTop;
         
-        // Get the pinch center relative to the viewport
+        // Use the initial pinch center as the zoom point
         const centerX = pinchCenter.x - rect.left;
         const centerY = pinchCenter.y - rect.top;
         
-        // Calculate the point in the document that should stay fixed
         const docX = (scrollLeft + centerX) / touchZoomStart;
         const docY = (scrollTop + centerY) / touchZoomStart;
         
-        // Update zoom
         onZoomChange(newZoom);
         
-        // Adjust scroll to keep the center point fixed
         requestAnimationFrame(() => {
           if (containerRef.current) {
             containerRef.current.scrollLeft = docX * newZoom - centerX;
@@ -477,7 +536,7 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
         onZoomChange(newZoom);
       }
     }
-  }, [touchDistance, touchZoomStart, onZoomChange, isPanning, panStart, pinchCenter, isResizingText]);
+  }, [touchDistance, touchZoomStart, onZoomChange, isPanning, panStart, pinchCenter, isResizingText, threeFingerPanning, threeFingerPanStart]);
 
   // Handle touch end
   const handleTouchEnd = useCallback(() => {
@@ -485,6 +544,8 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
     setIsPanning(false);
     setPinchCenter(null);
     setIsResizingText(false);
+    setThreeFingerPanning(false);
+    setThreeFingerPanStart(null);
   }, []);
 
   if (!file) {
@@ -517,7 +578,17 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
         ref={containerRef} 
         className="w-full h-full overflow-auto bg-pdf-bg"
         style={{ cursor: (currentTool === 'select' && !isPanning) || isRightClickPanning ? (isPanning || isRightClickPanning ? 'grabbing' : 'grab') : 'default' }}
-        onContextMenu={(e) => e.preventDefault()}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          // Right-click tool switching between pen and eraser
+          if (onToolChange) {
+            if (currentTool === 'pen') {
+              onToolChange('eraser');
+            } else if (currentTool === 'eraser') {
+              onToolChange('pen');
+            }
+          }
+        }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}

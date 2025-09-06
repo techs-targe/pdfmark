@@ -23,6 +23,7 @@ interface WindowManagerProps {
   onLoadAnnotations?: () => void;
   hasUnsavedChanges?: (fileName: string) => boolean;
   markAsSaved?: (fileName: string) => void;
+  onToolChange?: (tool: ToolType) => void;
 }
 
 export const WindowManager = forwardRef<any, WindowManagerProps>(({
@@ -41,6 +42,7 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
   onLoadAnnotations,
   hasUnsavedChanges,
   markAsSaved: _markAsSaved,  // Currently unused
+  onToolChange,
 }, ref) => {
   // Initialize with single pane, and set initial file if available
   const [panes, setPanes] = useState<WindowPane[]>([
@@ -734,6 +736,7 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
                 onAnnotationUpdate={(annotationId, updates) => {
                   onAnnotationUpdate(fileName, annotationId, updates);
                 }}
+                onToolChange={onToolChange}
               />
             );
           })()}

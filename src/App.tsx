@@ -496,6 +496,7 @@ function App() {
           onFileUpload={handleFileUpload}
           hasUnsavedChanges={hasUnsavedChanges}
           markAsSaved={markAsSaved}
+          onToolChange={(tool) => setToolSettings((prev) => ({ ...prev, currentTool: tool }))}
         />
       </div>
 
