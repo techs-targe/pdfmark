@@ -301,6 +301,11 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
     (event: React.MouseEvent | React.TouchEvent) => {
       if (isDisabled) return;
       if (!tools.pen || !tools.eraser || !tools.line || !tools.text) return;
+      
+      // Prevent drawing during 3-finger gestures
+      if ('touches' in event.nativeEvent && event.nativeEvent.touches.length >= 3) {
+        return;
+      }
 
       const canvas = canvasRef.current;
       if (!canvas) return;
