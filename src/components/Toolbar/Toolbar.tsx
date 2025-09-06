@@ -103,7 +103,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               <button
                 onClick={() => setShowHelp(true)}
                 className="p-1.5 rounded text-gray-300 hover:bg-gray-700"
-                title="ヘルプ"
+                title="Help"
               >
                 ❓
               </button>
@@ -328,7 +328,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             'toolbar-button': !isMobile,
             'p-1.5 rounded text-sm': isMobile,
           })}
-          title="ヘルプ"
+          title="Help"
         >
           ❓
         </button>

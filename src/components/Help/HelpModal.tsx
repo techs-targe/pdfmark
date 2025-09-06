@@ -9,43 +9,43 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   const shortcuts = [
-    { category: 'ツール', items: [
-      { key: '1', description: 'ペンツール' },
-      { key: '2', description: '消しゴムツール' },
-      { key: '3', description: 'テキストツール' },
-      { key: '4', description: 'ラインツール' },
-      { key: '5', description: '選択ツール' },
-      { key: '右クリック', description: 'ペン⇔消しゴム切り替え' },
+    { category: 'Tools', items: [
+      { key: '1', description: 'Pen Tool' },
+      { key: '2', description: 'Eraser Tool' },
+      { key: '3', description: 'Text Tool' },
+      { key: '4', description: 'Line Tool' },
+      { key: '5', description: 'Select Tool' },
+      { key: 'Right Click', description: 'Toggle Pen ⇔ Eraser' },
     ]},
-    { category: 'ナビゲーション', items: [
-      { key: 'PageUp / ←', description: '前のページ' },
-      { key: 'PageDown / →', description: '次のページ' },
-      { key: 'Home', description: '最初のページ' },
-      { key: 'End', description: '最後のページ' },
-      { key: '3本指ダブルタップ', description: 'ページ移動（上半分=前、下半分=次）' },
+    { category: 'Navigation', items: [
+      { key: 'PageUp / ←', description: 'Previous Page' },
+      { key: 'PageDown / →', description: 'Next Page' },
+      { key: 'Home', description: 'First Page' },
+      { key: 'End', description: 'Last Page' },
+      { key: '3-finger Double Tap', description: 'Page Navigation (Top=Prev, Bottom=Next)' },
     ]},
-    { category: 'ズーム操作', items: [
-      { key: 'Ctrl + +', description: '拡大' },
-      { key: 'Ctrl + -', description: '縮小' },
-      { key: 'Ctrl + 0', description: 'ズームリセット' },
-      { key: '4本指ピンチ', description: '拡大・縮小（指の中心基準）' },
-      { key: '5本指ダブルタップ', description: '幅に合わせる' },
+    { category: 'Zoom', items: [
+      { key: 'Ctrl + +', description: 'Zoom In' },
+      { key: 'Ctrl + -', description: 'Zoom Out' },
+      { key: 'Ctrl + 0', description: 'Reset Zoom' },
+      { key: '4-finger Pinch', description: 'Zoom In/Out (Center-based)' },
+      { key: '5-finger Double Tap', description: 'Fit to Width' },
     ]},
-    { category: 'PDF移動', items: [
-      { key: '↑↓←→', description: 'スクロール' },
-      { key: '選択ツール + ドラッグ', description: 'PDF移動' },
-      { key: '3本指スワイプ', description: 'PDF移動（全モード対応）' },
+    { category: 'PDF Movement', items: [
+      { key: '↑↓←→', description: 'Scroll' },
+      { key: 'Select Tool + Drag', description: 'Move PDF' },
+      { key: '3-finger Swipe', description: 'Move PDF (Any Mode)' },
     ]},
-    { category: '編集', items: [
-      { key: 'Ctrl + Z', description: '元に戻す' },
-      { key: 'Ctrl + Y', description: 'やり直し' },
-      { key: 'Ctrl + S', description: '保存' },
-      { key: 'Ctrl + O', description: '読み込み' },
-      { key: 'Delete', description: '選択したアノテーション削除' },
+    { category: 'Edit', items: [
+      { key: 'Ctrl + Z', description: 'Undo' },
+      { key: 'Ctrl + Y', description: 'Redo' },
+      { key: 'Ctrl + S', description: 'Save' },
+      { key: 'Ctrl + O', description: 'Load' },
+      { key: 'Delete', description: 'Delete Selected Annotation' },
     ]},
-    { category: '表示', items: [
-      { key: 'F11 / ⛶ボタン', description: '全画面表示' },
-      { key: 'Tab', description: 'ページ番号入力フォーカス' },
+    { category: 'Display', items: [
+      { key: 'F11 / ⛶ Button', description: 'Fullscreen Mode' },
+      { key: 'Tab', description: 'Focus Page Number Input' },
     ]},
   ];
 
@@ -53,11 +53,11 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl max-h-[80vh] overflow-auto m-4">
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">PDFMark ヘルプ - ショートカットキー</h2>
+          <h2 className="text-xl font-semibold text-gray-900">PDFMark Help - Keyboard Shortcuts</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 transition-colors"
-            title="閉じる"
+            title="Close"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -88,11 +88,11 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
           
           <div className="mt-6 pt-4 border-t border-gray-200">
             <div className="bg-blue-50 p-4 rounded-lg">
-              <h4 className="font-medium text-blue-800 mb-2">💡 タッチペン使用時のヒント</h4>
+              <h4 className="font-medium text-blue-800 mb-2">💡 Stylus Pen Usage Tips</h4>
               <ul className="text-sm text-blue-700 space-y-1">
-                <li>• タッチペンでの描画中の誤操作を防ぐため、ナビゲーションやズームは3本指以上のジェスチャーに変更されています</li>
-                <li>• 2本指ピンチは無効化され、4本指ピンチでズームします</li>
-                <li>• 右クリックでペンと消しゴムを素早く切り替えできます</li>
+                <li>• To prevent accidental operations while drawing with a stylus pen, navigation and zoom gestures require 3+ fingers</li>
+                <li>• 2-finger pinch is disabled, use 4-finger pinch for zooming instead</li>
+                <li>• Right-click to quickly switch between pen and eraser tools</li>
               </ul>
             </div>
           </div>

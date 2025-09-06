@@ -567,23 +567,23 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
             />
           </svg>
           <h2 className="text-xl font-semibold mb-2">{APP_INFO.name}</h2>
-          <p className="text-lg mb-2">このタブにはPDFが読み込まれていません</p>
-          <p className="text-sm mb-6">PDFファイルをドラッグ&ドロップするか、クリックして選択してください</p>
+          <p className="text-lg mb-2">No PDF loaded in this tab</p>
+          <p className="text-sm mb-6">Drag and drop a PDF file or click to select</p>
           
           <div className="bg-gray-800/50 rounded-lg p-4 text-xs space-y-2">
             <div className="border-b border-gray-600 pb-2 mb-2">
-              <h3 className="text-gray-300 font-medium mb-1">アプリケーション情報</h3>
+              <h3 className="text-gray-300 font-medium mb-1">Application Information</h3>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-400">ツール名:</span>
+              <span className="text-gray-400">Tool Name:</span>
               <span className="text-white">{APP_INFO.name}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-400">バージョン:</span>
+              <span className="text-gray-400">Version:</span>
               <span className="text-white">v{APP_INFO.version}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-400">ビルド日:</span>
+              <span className="text-gray-400">Build Date:</span>
               <span className="text-white">{APP_INFO.buildDate}</span>
             </div>
             <div className="text-center pt-2 border-t border-gray-600">
