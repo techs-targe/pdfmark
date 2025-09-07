@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { PDFDocumentProxy } from 'pdfjs-dist';
-import { pdfjsLib } from '../../utils/pdfjs-init';
+import { pdfjsLib, PDF_LOAD_PARAMS } from '../../utils/pdfjs-init';
 
 interface PDFViewerProps {
   file: File | null;
@@ -35,7 +35,10 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
       try {
         setError(null);
         const arrayBuffer = await file.arrayBuffer();
-        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+        const loadingTask = pdfjsLib.getDocument({ 
+          data: arrayBuffer,
+          ...PDF_LOAD_PARAMS
+        });
         const doc = await loadingTask.promise;
         
         if (!cancelled) {

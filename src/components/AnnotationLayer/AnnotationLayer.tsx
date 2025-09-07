@@ -43,6 +43,8 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
   const [renderCounter, forceUpdate] = useState(0);
   const [selectedAnnotation, setSelectedAnnotation] = useState<string | null>(null);
   const [editingAnnotation, setEditingAnnotation] = useState<string | null>(null);
+  const initialTouchDistanceRef = useRef<number | null>(null);
+  const lastTouchCountRef = useRef<number>(0);
   const [tools, setTools] = useState<{
     pen: PenTool | null;
     eraser: EraserTool | null;
@@ -55,7 +57,7 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
     text: null,
   });
 
-  // Initialize tools only once
+  // Initialize tools and gesture detection
   useEffect(() => {
     if (!canvasRef.current) return;
 
@@ -72,11 +74,46 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
 
     setTools(newTools);
 
+    // Add gesture event listeners for pinch detection
+    const handleGestureStart = (e: Event) => {
+      console.log('🚫 Gesture start detected, preventing drawing');
+      e.preventDefault();
+      if (isDrawingRef.current && newTools.pen.isActive()) {
+        newTools.pen.cancel();
+        isDrawingRef.current = false;
+        forceUpdate(prev => prev + 1);
+      }
+    };
+
+    const handleGestureChange = (e: Event) => {
+      console.log('🚫 Gesture change detected, preventing drawing');
+      e.preventDefault();
+      if (isDrawingRef.current) {
+        if (newTools.pen.isActive()) newTools.pen.cancel();
+        if (newTools.eraser.isActive()) newTools.eraser.cancel();
+        isDrawingRef.current = false;
+        forceUpdate(prev => prev + 1);
+      }
+    };
+
+    const handleGestureEnd = (e: Event) => {
+      console.log('🚫 Gesture end detected');
+      e.preventDefault();
+    };
+
+    // Add gesture event listeners (for iOS Safari pinch detection)
+    canvas.addEventListener('gesturestart', handleGestureStart, { passive: false });
+    canvas.addEventListener('gesturechange', handleGestureChange, { passive: false });
+    canvas.addEventListener('gestureend', handleGestureEnd, { passive: false });
+
     return () => {
       // Cleanup
       newTools.text.cancel();
+      canvas.removeEventListener('gesturestart', handleGestureStart);
+      canvas.removeEventListener('gesturechange', handleGestureChange);
+      canvas.removeEventListener('gestureend', handleGestureEnd);
     };
-  }, [onAnnotationAdd, onAnnotationRemove]);
+  }, [onAnnotationAdd, onAnnotationRemove, forceUpdate]);
 
   // Update tool settings
   useEffect(() => {
@@ -226,24 +263,76 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
       return prev;
     });
 
-    // Draw current drawing path if exists
+    // Draw current drawing path with smooth rendering
     if (tools.pen && tools.pen.isActive()) {
       const currentPath = tools.pen.getCurrentPath();
       if (currentPath && currentPath.points.length > 0) {
         ctx.save();
         ctx.strokeStyle = currentPath.color;
-        ctx.lineWidth = currentPath.lineWidth;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
-        ctx.beginPath();
-        currentPath.points.forEach((point, index) => {
-          if (index === 0) {
-            ctx.moveTo(point.x, point.y);
-          } else {
-            ctx.lineTo(point.x, point.y);
+        
+        // Check if we have pressure data
+        const pressurePoints = (currentPath as any).pressurePoints;
+        
+        if (pressurePoints && pressurePoints.length > 1) {
+          // Draw smooth curves with pressure sensitivity
+          ctx.beginPath();
+          ctx.moveTo(pressurePoints[0].x, pressurePoints[0].y);
+          
+          for (let i = 1; i < pressurePoints.length - 1; i++) {
+            const current = pressurePoints[i];
+            const next = pressurePoints[i + 1];
+            
+            // Simple pressure-based line width without artifacts
+            const pressureMultiplier = Math.pow(current.pressure || 0.7, 0.6);
+            const lineWidth = Math.max(0.5, currentPath.lineWidth * pressureMultiplier);
+            ctx.lineWidth = lineWidth;
+            
+            // Use quadratic curves for smoothness
+            const midX = (current.x + next.x) / 2;
+            const midY = (current.y + next.y) / 2;
+            ctx.quadraticCurveTo(current.x, current.y, midX, midY);
           }
-        });
-        ctx.stroke();
+          
+          // Draw to the last point
+          if (pressurePoints.length > 1) {
+            const lastPoint = pressurePoints[pressurePoints.length - 1];
+            ctx.lineTo(lastPoint.x, lastPoint.y);
+          }
+          
+          ctx.stroke();
+        } else {
+          // Simple smooth line drawing
+          ctx.lineWidth = currentPath.lineWidth;
+          ctx.beginPath();
+          if (currentPath.points.length > 2) {
+            // Use quadratic curves for smoothness
+            ctx.moveTo(currentPath.points[0].x, currentPath.points[0].y);
+            
+            for (let i = 1; i < currentPath.points.length - 1; i++) {
+              const current = currentPath.points[i];
+              const next = currentPath.points[i + 1];
+              const midX = (current.x + next.x) / 2;
+              const midY = (current.y + next.y) / 2;
+              ctx.quadraticCurveTo(current.x, current.y, midX, midY);
+            }
+            
+            const lastPoint = currentPath.points[currentPath.points.length - 1];
+            ctx.lineTo(lastPoint.x, lastPoint.y);
+          } else {
+            // Fallback for short paths
+            currentPath.points.forEach((point, index) => {
+              if (index === 0) {
+                ctx.moveTo(point.x, point.y);
+              } else {
+                ctx.lineTo(point.x, point.y);
+              }
+            });
+          }
+          ctx.stroke();
+        }
+        
         ctx.restore();
       }
     }
@@ -296,14 +385,100 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
     return null;
   }, [annotations, canvasWidth, canvasHeight]);
 
-  // Handle mouse/touch events
+  // Helper function to calculate distance between two touches
+  const getTouchDistance = useCallback((touches: TouchList | Touch[]) => {
+    if (touches.length < 2) return 0;
+    const touch1 = touches[0];
+    const touch2 = touches[1];
+    const dx = touch1.clientX - touch2.clientX;
+    const dy = touch1.clientY - touch2.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }, []);
+
+  // Helper function to check for multi-finger gestures (2+ fingers)
+  const isMultiFingerGesture = useCallback((event: any) => {
+    // Multiple comprehensive checks for multi-finger gestures (including 2-finger pinch)
+    
+    let touchCount = 0;
+    let touches = null;
+    
+    // Get the touch count and touches from various event sources
+    if (event.touches && event.touches.length >= 2) {
+      touchCount = event.touches.length;
+      touches = event.touches;
+      console.log('🚫 React event: 2+ fingers detected:', touchCount);
+    } else if (event.nativeEvent) {
+      if (event.nativeEvent.touches && event.nativeEvent.touches.length >= 2) {
+        touchCount = event.nativeEvent.touches.length;
+        touches = event.nativeEvent.touches;
+        console.log('🚫 Native event: 2+ fingers detected:', touchCount);
+      } else if (event.nativeEvent.originalEvent && event.nativeEvent.originalEvent.touches && event.nativeEvent.originalEvent.touches.length >= 2) {
+        touchCount = event.nativeEvent.originalEvent.touches.length;
+        touches = event.nativeEvent.originalEvent.touches;
+        console.log('🚫 Original event: 2+ fingers detected:', touchCount);
+      }
+    } else if ('targetTouches' in event && event.targetTouches && event.targetTouches.length >= 2) {
+      touchCount = event.targetTouches.length;
+      touches = event.targetTouches;
+      console.log('🚫 Target touches: 2+ fingers detected:', touchCount);
+    }
+    
+    // Store touch count for tracking
+    lastTouchCountRef.current = Math.max(touchCount, lastTouchCountRef.current);
+    
+    // If we have 2+ fingers, analyze the distance for pinch detection
+    if (touchCount >= 2 && touches) {
+      const currentDistance = getTouchDistance(touches);
+      
+      // Store initial distance if this is the first multi-touch event
+      if (initialTouchDistanceRef.current === null) {
+        initialTouchDistanceRef.current = currentDistance;
+        console.log('🚫 Initial touch distance recorded:', currentDistance);
+      } else {
+        // Check if this is a pinch gesture (distance changed significantly)
+        const distanceChange = Math.abs(currentDistance - initialTouchDistanceRef.current);
+        if (distanceChange > 10) { // 10px threshold for pinch detection
+          console.log('🚫 Pinch gesture detected! Distance change:', distanceChange);
+        }
+      }
+      
+      return true;
+    }
+    
+    // Check for scale-based pinch detection (iOS Safari)
+    if (event.nativeEvent && 'scale' in event.nativeEvent && event.nativeEvent.scale !== 1) {
+      console.log('🚫 Pinch gesture detected via scale:', event.nativeEvent.scale);
+      return true;
+    }
+    
+    // Reset distance tracking when no multi-touch is detected
+    if (touchCount < 2) {
+      initialTouchDistanceRef.current = null;
+      lastTouchCountRef.current = 0;
+    }
+    
+    return false;
+  }, [getTouchDistance]);
+
+  // Handle mouse/touch/pointer events
   const handlePointerDown = useCallback(
-    (event: React.MouseEvent | React.TouchEvent) => {
+    (event: React.MouseEvent | React.TouchEvent | React.PointerEvent) => {
       if (isDisabled) return;
       if (!tools.pen || !tools.eraser || !tools.line || !tools.text) return;
       
-      // Prevent drawing during 3-finger gestures
-      if ('touches' in event.nativeEvent && event.nativeEvent.touches.length >= 3) {
+      // Prevent all drawing during multi-finger gestures
+      if (isMultiFingerGesture(event)) {
+        console.log('🚫 Multi-finger gesture detected, preventing drawing');
+        // Cancel any current drawing
+        if (isDrawingRef.current) {
+          isDrawingRef.current = false;
+          if (tools.pen && tools.pen.isActive()) {
+            tools.pen.cancel();
+          }
+          if (tools.eraser && tools.eraser.isActive()) {
+            tools.eraser.cancel();
+          }
+        }
         return;
       }
 
@@ -356,12 +531,30 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
           break;
       }
     },
-    [currentTool, tools, pageNumber, getTextAnnotationAtPoint, isDisabled]
+    [currentTool, tools, pageNumber, getTextAnnotationAtPoint, isDisabled, isMultiFingerGesture]
   );
 
   const handlePointerMove = useCallback(
-    (event: React.MouseEvent | React.TouchEvent) => {
+    (event: React.MouseEvent | React.TouchEvent | React.PointerEvent) => {
       if (isDisabled) return;
+      
+      // Prevent all drawing during multi-finger gestures
+      if (isMultiFingerGesture(event)) {
+        console.log('🚫 Multi-finger gesture detected during move, canceling drawing');
+        // Cancel any current drawing immediately
+        if (isDrawingRef.current) {
+          isDrawingRef.current = false;
+          if (tools.pen && tools.pen.isActive()) {
+            tools.pen.cancel();
+          }
+          if (tools.eraser && tools.eraser.isActive()) {
+            tools.eraser.cancel();
+          }
+          forceUpdate(prev => prev + 1); // Force re-render to clear drawing
+        }
+        return;
+      }
+      
       const canvas = canvasRef.current;
       if (!canvas) return;
 
@@ -406,11 +599,28 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
           break;
       }
     },
-    [currentTool, tools, annotations, onAnnotationRemove, forceUpdate, isDisabled]
+    [currentTool, tools, annotations, onAnnotationRemove, forceUpdate, isDisabled, isMultiFingerGesture]
   );
 
   const handlePointerUp = useCallback(
-    (event: React.MouseEvent | React.TouchEvent) => {
+    (event: React.MouseEvent | React.TouchEvent | React.PointerEvent) => {
+      // Prevent all drawing during multi-finger gestures
+      if (isMultiFingerGesture(event)) {
+        console.log('🚫 Multi-finger gesture detected during up, canceling drawing');
+        // Cancel any current drawing immediately
+        if (isDrawingRef.current) {
+          isDrawingRef.current = false;
+          if (tools.pen && tools.pen.isActive()) {
+            tools.pen.cancel();
+          }
+          if (tools.eraser && tools.eraser.isActive()) {
+            tools.eraser.cancel();
+          }
+          forceUpdate(prev => prev + 1); // Force re-render to clear drawing
+        }
+        return;
+      }
+      
       if (!tools.pen || !tools.eraser || !tools.line) return;
 
       isDrawingRef.current = false;
@@ -429,7 +639,7 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
           break;
       }
     },
-    [currentTool, tools, pageNumber, forceUpdate]
+    [currentTool, tools, pageNumber, forceUpdate, isMultiFingerGesture]
   );
 
   // Handle double-click for text editing
@@ -503,15 +713,19 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
           top: 0,
           left: 0,
           zIndex: 20,
+          touchAction: 'none' // Prevent default touch behaviors for precise gesture detection
         }}
         onMouseDown={handlePointerDown}
         onMouseMove={handlePointerMove}
         onMouseUp={handlePointerUp}
         onMouseLeave={handlePointerLeave}
-        onDoubleClick={handleDoubleClick}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
         onTouchStart={handlePointerDown}
         onTouchMove={handlePointerMove}
         onTouchEnd={handlePointerUp}
+        onDoubleClick={handleDoubleClick}
       />
       
       {/* Render ResizableText components for text annotations when in select mode */}

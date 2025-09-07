@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback, memo } from 'react';
 import { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
-import { pdfjsLib } from '../../utils/pdfjs-init';
+import { pdfjsLib, PDF_LOAD_PARAMS } from '../../utils/pdfjs-init';
 import { AnnotationLayer } from '../AnnotationLayer/AnnotationLayer';
 import { Annotation, ToolType } from '../../types';
 import { APP_INFO } from '../../config/version';
@@ -94,7 +94,10 @@ export const ContinuousPDFViewer = memo<SimplePDFViewerProps>(({
         
         if (cancelled) return;
         
-        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+        const loadingTask = pdfjsLib.getDocument({ 
+          data: arrayBuffer,
+          ...PDF_LOAD_PARAMS
+        });
         const doc = await loadingTask.promise;
         
         if (!cancelled) {

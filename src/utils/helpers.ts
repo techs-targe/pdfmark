@@ -20,9 +20,9 @@ export function isPointInBounds(point: Point, bounds: DOMRect): boolean {
   );
 }
 
-// Get mouse/touch position relative to element
+// Get mouse/touch/pointer position relative to element
 export function getRelativePosition(
-  event: MouseEvent | TouchEvent,
+  event: MouseEvent | TouchEvent | PointerEvent | any,
   element: HTMLElement
 ): Point {
   const rect = element.getBoundingClientRect();
@@ -34,10 +34,10 @@ export function getRelativePosition(
     };
   }
   
-  const mouseEvent = event as MouseEvent;
+  // Handle both MouseEvent and PointerEvent
   return {
-    x: mouseEvent.clientX - rect.left,
-    y: mouseEvent.clientY - rect.top,
+    x: event.clientX - rect.left,
+    y: event.clientY - rect.top,
   };
 }
 

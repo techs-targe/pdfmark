@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback, memo, forwardRef, useImperativeHandle } from 'react';
 import { PDFDocumentProxy } from 'pdfjs-dist';
-import { pdfjsLib } from '../../utils/pdfjs-init';
+import { pdfjsLib, PDF_LOAD_PARAMS } from '../../utils/pdfjs-init';
 import { AnnotationLayer } from '../AnnotationLayer/AnnotationLayer';
 import { Annotation, ToolType } from '../../types';
 import { APP_INFO } from '../../config/version';
@@ -101,7 +101,10 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
           return;
         }
         
-        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+        const loadingTask = pdfjsLib.getDocument({ 
+          data: arrayBuffer,
+          ...PDF_LOAD_PARAMS
+        });
         const doc = await loadingTask.promise;
         
         if (!cancelled) {

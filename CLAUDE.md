@@ -191,6 +191,76 @@ git pull origin main
 git status
 ```
 
+## Production Server Deployment
+
+### Server Build Commands (IMPORTANT)
+
+**⚠️ Use `npx vite build` NOT `npm run build`**
+
+`npm run build` includes TypeScript checking and will show many errors. For production deployment, use:
+
+```bash
+# Correct server deployment procedure
+git pull origin stable-v1
+npx vite build  # NOT npm run build
+sudo cp -r dist/* /var/www/pdfmark/
+```
+
+### Complete Server Deployment Procedure
+
+```bash
+# 1. Navigate to project directory on server
+cd /path/to/pdfmark
+
+# 2. Pull latest stable version
+git pull origin stable-v1
+
+# 3. Clean previous build (optional but recommended)
+rm -rf dist/
+rm -rf node_modules/.vite  # Clear Vite cache
+
+# 4. Install dependencies (if needed)
+npm ci
+
+# 5. Build for production (CRITICAL: use npx vite build)
+npx vite build
+
+# 6. Deploy to web directory
+sudo rm -rf /var/www/pdfmark/*  # Complete cleanup
+sudo cp -r dist/* /var/www/pdfmark/
+
+# 7. Set proper permissions
+sudo chown -R www-data:www-data /var/www/pdfmark/
+sudo chmod -R 755 /var/www/pdfmark/
+
+# 8. Reload web server (if needed)
+sudo systemctl reload nginx
+```
+
+### Troubleshooting
+
+**If PDF.js worker 404 errors occur:**
+1. Verify all files copied: `ls -la /var/www/pdfmark/assets/pdf.worker*`
+2. Check nginx MIME types for .mjs files
+3. Clear browser cache completely (Ctrl+Shift+R)
+4. Check browser console for specific missing files
+
+**Build Command Comparison:**
+- ❌ `npm run build` - Includes TypeScript checking, shows errors
+- ✅ `npx vite build` - Direct Vite build, skips TypeScript errors
+
+### Current Version Checking
+
+```bash
+# Development server (shows current build number)
+npm run dev
+# Access: http://localhost:4567/
+# Click ❓ button to see version info
+
+# Production deployment verification
+curl -I https://your-domain.com/pdfmark/
+```
+
 ## Key Implementation Notes
 
 1. **All code and comments must be in English** for GitHub publication
