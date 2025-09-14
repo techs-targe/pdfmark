@@ -1,5 +1,5 @@
 import React, { useState, useCallback, forwardRef, useImperativeHandle, useRef } from 'react';
-import { WindowLayout, WindowPane, Tab, Annotation, ToolSettings } from '../../types';
+import { WindowLayout, WindowPane, Tab, Annotation, ToolSettings, ToolType } from '../../types';
 import { TabManager } from '../TabManager/TabManager';
 import { SimplePDFViewer } from '../PDFViewer/SimplePDFViewer';
 import { WindowPaneHeader } from '../WindowPane/WindowPaneHeader';

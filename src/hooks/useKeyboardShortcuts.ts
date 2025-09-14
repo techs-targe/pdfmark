@@ -1,5 +1,6 @@
 import { useEffect, useCallback } from 'react';
 import { ToolType } from '../types';
+import { shouldDisableKeyboardShortcuts } from '../utils/penDetection';
 
 interface ShortcutHandlers {
   onUndo?: () => void;
@@ -21,6 +22,14 @@ interface ShortcutHandlers {
 export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
+      // CRITICAL: Disable ALL keyboard shortcuts when pen is active
+      if (shouldDisableKeyboardShortcuts()) {
+        console.log(`🚫 Keyboard shortcuts disabled - pen is active, blocking key: "${event.key}"`);
+        event.preventDefault(); // Prevent any keyboard action
+        event.stopPropagation(); // Stop event from bubbling
+        return;
+      }
+
       // Ignore if typing in input
       if (
         event.target instanceof HTMLInputElement ||
@@ -32,11 +41,18 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
       const { key, ctrlKey, metaKey, shiftKey } = event;
       const isModifier = ctrlKey || metaKey;
 
-      // Tool shortcuts (1-5)
+      // Tool shortcuts (1-5) - BLOCKED when pen is active
       if (!isModifier && /^[1-5]$/.test(key)) {
+        if (shouldDisableKeyboardShortcuts()) {
+          console.log(`🚫 Tool shortcut key "${key}" pressed, but pen is active - BLOCKING`);
+          event.preventDefault(); // Block the key event entirely
+          return;
+        }
+
         const tools: ToolType[] = ['pen', 'eraser', 'text', 'line', 'select'];
         const toolIndex = parseInt(key) - 1;
         if (handlers.onToolChange && tools[toolIndex]) {
+          console.log(`🔧 Tool shortcut "${key}" -> ${tools[toolIndex]}`);
           event.preventDefault();
           handlers.onToolChange(tools[toolIndex]);
         }

@@ -7,6 +7,7 @@ import { TextTool } from '../../tools/TextTool';
 import { TextEditDialog } from './TextEditDialog';
 import { ResizableText } from './ResizableText';
 import { normalizedToScreen, normalizedPointsToScreen, screenToNormalized } from '../../utils/helpers';
+import { isPenEvent, isPenActive, setToolActive } from '../../utils/penDetection';
 
 interface AnnotationLayerProps {
   pageNumber: number;
@@ -76,17 +77,38 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
 
     // Add gesture event listeners for pinch detection
     const handleGestureStart = (e: Event) => {
-      console.log('🚫 Gesture start detected, preventing drawing');
+      console.log('🚫 Gesture start detected');
+
+      // CRITICAL FIX: Don't cancel pen drawing for genuine pen input
+      if (isPenActive()) {
+        console.log('🚫 Gesture start - PEN ACTIVE, NOT cancelling drawing');
+        e.preventDefault();
+        return;
+      }
+
+      console.log('🚫 Gesture start - preventing non-pen drawing');
       e.preventDefault();
       if (isDrawingRef.current && newTools.pen.isActive()) {
         newTools.pen.cancel();
         isDrawingRef.current = false;
         forceUpdate(prev => prev + 1);
       }
+      // Stop tracking tool activities
+      setToolActive('eraser', false);
+      setToolActive('line', false);
     };
 
     const handleGestureChange = (e: Event) => {
-      console.log('🚫 Gesture change detected, preventing drawing');
+      console.log('🚫 Gesture change detected');
+
+      // CRITICAL FIX: Don't cancel pen drawing for genuine pen input
+      if (isPenActive()) {
+        console.log('🚫 Gesture change - PEN ACTIVE, NOT cancelling drawing');
+        e.preventDefault();
+        return;
+      }
+
+      console.log('🚫 Gesture change - preventing non-pen drawing');
       e.preventDefault();
       if (isDrawingRef.current) {
         if (newTools.pen.isActive()) newTools.pen.cancel();
@@ -94,6 +116,9 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
         isDrawingRef.current = false;
         forceUpdate(prev => prev + 1);
       }
+      // Stop tracking tool activities
+      setToolActive('eraser', false);
+      setToolActive('line', false);
     };
 
     const handleGestureEnd = (e: Event) => {
@@ -395,13 +420,24 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
     return Math.sqrt(dx * dx + dy * dy);
   }, []);
 
-  // Helper function to check for multi-finger gestures (2+ fingers)
+  // COMPLETELY REWRITTEN: Helper function to check for multi-finger gestures (2+ fingers)
   const isMultiFingerGesture = useCallback((event: any) => {
+    // CRITICAL FIX: If this is a pen/stylus input, NEVER treat it as multi-finger gesture
+    if (isPenEvent(event)) {
+      console.log('✅ Pen input confirmed, completely skipping multi-finger check');
+      return false;
+    }
+
+    // If global pen detection says pen is active, skip multi-finger check
+    if (isPenActive()) {
+      console.log('✅ Global pen detection active, skipping multi-finger check');
+      return false;
+    }
+
     // Multiple comprehensive checks for multi-finger gestures (including 2-finger pinch)
-    
     let touchCount = 0;
     let touches = null;
-    
+
     // Get the touch count and touches from various event sources
     if (event.touches && event.touches.length >= 2) {
       touchCount = event.touches.length;
@@ -422,14 +458,14 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
       touches = event.targetTouches;
       console.log('🚫 Target touches: 2+ fingers detected:', touchCount);
     }
-    
+
     // Store touch count for tracking
     lastTouchCountRef.current = Math.max(touchCount, lastTouchCountRef.current);
-    
+
     // If we have 2+ fingers, analyze the distance for pinch detection
     if (touchCount >= 2 && touches) {
       const currentDistance = getTouchDistance(touches);
-      
+
       // Store initial distance if this is the first multi-touch event
       if (initialTouchDistanceRef.current === null) {
         initialTouchDistanceRef.current = currentDistance;
@@ -441,45 +477,59 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
           console.log('🚫 Pinch gesture detected! Distance change:', distanceChange);
         }
       }
-      
+
       return true;
     }
-    
+
     // Check for scale-based pinch detection (iOS Safari)
     if (event.nativeEvent && 'scale' in event.nativeEvent && event.nativeEvent.scale !== 1) {
       console.log('🚫 Pinch gesture detected via scale:', event.nativeEvent.scale);
       return true;
     }
-    
+
     // Reset distance tracking when no multi-touch is detected
     if (touchCount < 2) {
       initialTouchDistanceRef.current = null;
       lastTouchCountRef.current = 0;
     }
-    
+
     return false;
   }, [getTouchDistance]);
 
-  // Handle mouse/touch/pointer events
+  // COMPLETELY REWRITTEN: Handle mouse/touch/pointer events
   const handlePointerDown = useCallback(
     (event: React.MouseEvent | React.TouchEvent | React.PointerEvent) => {
       if (isDisabled) return;
       if (!tools.pen || !tools.eraser || !tools.line || !tools.text) return;
-      
-      // Prevent all drawing during multi-finger gestures
-      if (isMultiFingerGesture(event)) {
-        console.log('🚫 Multi-finger gesture detected, preventing drawing');
-        // Cancel any current drawing
-        if (isDrawingRef.current) {
-          isDrawingRef.current = false;
-          if (tools.pen && tools.pen.isActive()) {
-            tools.pen.cancel();
+
+      // Check if this is a pen/stylus input using our robust detection
+      const isPenInput = isPenEvent(event.nativeEvent || event);
+
+      if (isPenInput) {
+        console.log('🔥 CONFIRMED PEN INPUT in handlePointerDown - PROCEEDING WITH DRAWING');
+      }
+
+      // For pen input, COMPLETELY BYPASS multi-finger gesture detection
+      if (isPenInput) {
+        console.log('✅ Pen input - bypassing ALL gesture checks');
+        // Proceed directly to drawing logic
+      } else {
+        // Only check for multi-finger gestures for non-pen input
+        if (isMultiFingerGesture(event)) {
+          console.log('🚫 Multi-finger gesture detected, preventing drawing');
+          // Cancel any current drawing
+          if (isDrawingRef.current) {
+            isDrawingRef.current = false;
+            if (tools.pen && tools.pen.isActive()) {
+              tools.pen.cancel();
+            }
+            if (tools.eraser && tools.eraser.isActive()) {
+              tools.eraser.cancel();
+              setToolActive('eraser', false); // Stop tracking eraser activity
+            }
           }
-          if (tools.eraser && tools.eraser.isActive()) {
-            tools.eraser.cancel();
-          }
+          return;
         }
-        return;
       }
 
       const canvas = canvasRef.current;
@@ -516,6 +566,8 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
           tools.pen.startDrawing(event.nativeEvent);
           break;
         case 'eraser':
+          console.log(`🧹 AnnotationLayer.handlePointerDown - STARTING eraser tool`);
+          setToolActive('eraser', true); // Track eraser tool activity
           tools.eraser.startErasing(event.nativeEvent);
           break;
         case 'text':
@@ -537,22 +589,32 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
   const handlePointerMove = useCallback(
     (event: React.MouseEvent | React.TouchEvent | React.PointerEvent) => {
       if (isDisabled) return;
-      
-      // Prevent all drawing during multi-finger gestures
-      if (isMultiFingerGesture(event)) {
-        console.log('🚫 Multi-finger gesture detected during move, canceling drawing');
-        // Cancel any current drawing immediately
-        if (isDrawingRef.current) {
-          isDrawingRef.current = false;
-          if (tools.pen && tools.pen.isActive()) {
-            tools.pen.cancel();
+
+      // Check if this is a pen/stylus input using our robust detection
+      const isPenInput = isPenEvent(event.nativeEvent || event);
+
+      // For pen input, COMPLETELY BYPASS multi-finger gesture detection
+      if (isPenInput) {
+        console.log('✅ Pen input during move - bypassing ALL gesture checks');
+        // Proceed directly to drawing logic
+      } else {
+        // Only check for multi-finger gestures for non-pen input
+        if (isMultiFingerGesture(event)) {
+          console.log('🚫 Multi-finger gesture detected during move, canceling drawing');
+          // Cancel any current drawing immediately
+          if (isDrawingRef.current) {
+            isDrawingRef.current = false;
+            if (tools.pen && tools.pen.isActive()) {
+              tools.pen.cancel();
+            }
+            if (tools.eraser && tools.eraser.isActive()) {
+              tools.eraser.cancel();
+              setToolActive('eraser', false); // Stop tracking eraser activity
+            }
+            forceUpdate(prev => prev + 1); // Force re-render to clear drawing
           }
-          if (tools.eraser && tools.eraser.isActive()) {
-            tools.eraser.cancel();
-          }
-          forceUpdate(prev => prev + 1); // Force re-render to clear drawing
+          return;
         }
-        return;
       }
       
       const canvas = canvasRef.current;
@@ -604,21 +666,35 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
 
   const handlePointerUp = useCallback(
     (event: React.MouseEvent | React.TouchEvent | React.PointerEvent) => {
-      // Prevent all drawing during multi-finger gestures
-      if (isMultiFingerGesture(event)) {
-        console.log('🚫 Multi-finger gesture detected during up, canceling drawing');
-        // Cancel any current drawing immediately
-        if (isDrawingRef.current) {
-          isDrawingRef.current = false;
-          if (tools.pen && tools.pen.isActive()) {
-            tools.pen.cancel();
+      // Check if this is a pen/stylus input using our robust detection
+      const isPenInput = isPenEvent(event.nativeEvent || event);
+
+      if (isPenInput) {
+        console.log('🔥 CONFIRMED PEN INPUT in handlePointerUp - COMPLETING DRAWING NORMALLY');
+      }
+
+      // For pen input, COMPLETELY BYPASS multi-finger gesture detection
+      if (isPenInput) {
+        console.log('✅ Pen input - bypassing ALL gesture checks, proceeding to complete drawing');
+        // Proceed directly to completion logic - NO CANCELLATION
+      } else {
+        // Only check for multi-finger gestures for non-pen input
+        if (isMultiFingerGesture(event)) {
+          console.log('🚫 Multi-finger gesture detected during up, canceling drawing');
+          // Cancel any current drawing immediately
+          if (isDrawingRef.current) {
+            isDrawingRef.current = false;
+            if (tools.pen && tools.pen.isActive()) {
+              tools.pen.cancel();
+            }
+            if (tools.eraser && tools.eraser.isActive()) {
+              tools.eraser.cancel();
+              setToolActive('eraser', false); // Stop tracking eraser activity
+            }
+            forceUpdate(prev => prev + 1); // Force re-render to clear drawing
           }
-          if (tools.eraser && tools.eraser.isActive()) {
-            tools.eraser.cancel();
-          }
-          forceUpdate(prev => prev + 1); // Force re-render to clear drawing
+          return;
         }
-        return;
       }
       
       if (!tools.pen || !tools.eraser || !tools.line) return;
@@ -626,16 +702,26 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
       isDrawingRef.current = false;
 
       // Complete the drawing operation (but not for line tool which uses click-based approach)
+      const nativeEvent = event.nativeEvent || event;
+      const eventType = (nativeEvent as PointerEvent).pointerType || 'unknown';
+      console.log(`🎯 AnnotationLayer.handlePointerUp - Current tool: ${currentTool}, Event type: ${eventType}`);
+
       switch (currentTool) {
         case 'pen':
+          console.log(`🎯 AnnotationLayer.handlePointerUp - CALLING tools.pen.stopDrawing for ${eventType} event`);
           tools.pen.stopDrawing(pageNumber);
+          console.log(`🎯 AnnotationLayer.handlePointerUp - tools.pen.stopDrawing completed for ${eventType} event`);
           forceUpdate(prev => prev + 1); // Final update to show completed annotation
           break;
         case 'eraser':
+          console.log(`🎯 AnnotationLayer.handlePointerUp - CALLING tools.eraser.stopErasing for ${eventType} event`);
           tools.eraser.stopErasing();
+          console.log(`🧹 AnnotationLayer.handlePointerUp - STOPPING eraser tool`);
+          setToolActive('eraser', false); // Stop tracking eraser tool activity
           break;
         case 'line':
           // Line tool uses two-click approach, don't stop on mouse up
+          console.log(`🎯 AnnotationLayer.handlePointerUp - Skipping line tool for ${eventType} event`);
           break;
       }
     },
@@ -666,13 +752,25 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
   const handlePointerLeave = useCallback(() => {
     if (!tools.pen || !tools.eraser || !tools.line) return;
 
+    // CRITICAL FIX: Don't cancel pen drawing on pointer leave for touch pens
+    // Touch pens often trigger pointer leave events during normal drawing
+    if (isPenActive()) {
+      console.log('🚫 handlePointerLeave - PEN ACTIVE, NOT cancelling drawing');
+      return;
+    }
+
+    console.log('🚫 handlePointerLeave - Cancelling non-pen operations');
     isDrawingRef.current = false;
 
-    // Cancel active operations when pointer leaves canvas
+    // Stop tracking tool activities
+    setToolActive('eraser', false);
+    setToolActive('line', false);
+
+    // Cancel active operations when pointer leaves canvas (but not for active pen)
     tools.pen.cancel();
     tools.eraser.cancel();
     tools.line.cancel();
-    
+
     forceUpdate(prev => prev + 1); // Update to clear any temporary drawing
   }, [tools, forceUpdate]);
 

@@ -1,11 +1,27 @@
 import { Point, Annotation } from '../types';
 import { getRelativePosition, distance, normalizedToScreen, normalizedPointsToScreen } from '../utils/helpers';
+import { setToolActive } from '../utils/penDetection';
 
 export class EraserTool {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
-  private isErasing: boolean = false;
+  private _isErasing: boolean = false;
   private eraserSize: number = 20;
+
+  // Defensive getter/setter to track all changes to isErasing
+  private get isErasing(): boolean {
+    return this._isErasing;
+  }
+
+  private set isErasing(value: boolean) {
+    if (this._isErasing !== value) {
+      const stack = new Error().stack;
+      console.log(`🔧 EraserTool.isErasing - CHANGED from ${this._isErasing} to ${value}`);
+      console.log(`🔧 EraserTool.isErasing - STACK TRACE:`);
+      console.log(stack);
+      this._isErasing = value;
+    }
+  }
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -21,15 +37,25 @@ export class EraserTool {
   }
 
   startErasing(event: MouseEvent | TouchEvent): void {
+    const eventType = (event as PointerEvent).pointerType || 'unknown';
+    console.log(`🧹 EraserTool.startErasing - Event type: ${eventType}, isErasing: ${this.isErasing}`);
     this.isErasing = true;
+    setToolActive('eraser', true); // 確実にツール追跡を開始
+    console.log(`🧹 EraserTool.startErasing - Set isErasing to true and activated tool tracking`);
     this.erase(event);
   }
 
   erase(event: MouseEvent | TouchEvent): void {
-    if (!this.isErasing) return;
-    
+    const eventType = (event as PointerEvent).pointerType || 'unknown';
+
+    if (!this.isErasing) {
+      console.log(`🧹 EraserTool.erase - NOT ERASING (Event type: ${eventType})`);
+      return;
+    }
+
     const point = getRelativePosition(event, this.canvas);
-    
+    console.log(`🧹 EraserTool.erase - Erasing at (${point.x}, ${point.y}) with ${eventType}`);
+
     // Clear a circular area
     this.ctx.save();
     this.ctx.globalCompositeOperation = 'destination-out';
@@ -37,19 +63,26 @@ export class EraserTool {
     this.ctx.arc(point.x, point.y, this.eraserSize / 2, 0, Math.PI * 2);
     this.ctx.fill();
     this.ctx.restore();
-    
+
     // Show eraser cursor outline
     this.showEraserCursor(point);
   }
 
   stopErasing(): void {
+    console.log(`🧹 EraserTool.stopErasing - isErasing: ${this.isErasing}`);
+    console.trace('🧹 EraserTool.stopErasing - STACK TRACE:'); // スタックトレースで呼び出し元を特定
     this.isErasing = false;
+    setToolActive('eraser', false); // 確実にツール追跡を停止
+    console.log(`🧹 EraserTool.stopErasing - Set isErasing to false and deactivated tool tracking`);
     this.hideEraserCursor();
   }
 
   cancel(): void {
+    console.log(`🚫 EraserTool.cancel - CANCELLING ERASING! isErasing was: ${this.isErasing}`);
+    console.trace('🚫 EraserTool.cancel - STACK TRACE:'); // スタックトレースで呼び出し元を特定
     this.isErasing = false;
     this.hideEraserCursor();
+    console.log(`🚫 EraserTool.cancel - Cancelled and cleared eraser state`);
   }
 
   isActive(): boolean {

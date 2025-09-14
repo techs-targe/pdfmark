@@ -4,6 +4,7 @@ import { pdfjsLib, PDF_LOAD_PARAMS } from '../../utils/pdfjs-init';
 import { AnnotationLayer } from '../AnnotationLayer/AnnotationLayer';
 import { Annotation, ToolType } from '../../types';
 import { APP_INFO } from '../../config/version';
+import { isAnyDrawingToolActive } from '../../utils/penDetection';
 
 interface SimplePDFViewerProps {
   file: File | null;
@@ -606,8 +607,18 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
         style={{ cursor: (currentTool === 'select' && !isPanning) || isRightClickPanning ? (isPanning || isRightClickPanning ? 'grabbing' : 'grab') : 'default' }}
         onContextMenu={(e) => {
           e.preventDefault();
-          // Right-click tool switching between pen and eraser
+
+          // CRITICAL FIX: Block tool switching when any drawing tool is active
+          const anyToolActive = isAnyDrawingToolActive();
+          console.log(`🔧 SimplePDFViewer.onContextMenu - isAnyDrawingToolActive: ${anyToolActive}`);
+          if (anyToolActive) {
+            console.log('🚫 SimplePDFViewer.onContextMenu - Tool switching BLOCKED due to active drawing');
+            return;
+          }
+
+          // Right-click tool switching between pen and eraser (only when no tools are active)
           if (onToolChange) {
+            console.log(`🔧 SimplePDFViewer.onContextMenu - Right-click tool switching from ${currentTool}`);
             if (currentTool === 'pen') {
               onToolChange('eraser');
             } else if (currentTool === 'eraser') {

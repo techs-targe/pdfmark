@@ -5,6 +5,7 @@ import { Toolbar } from './components/Toolbar/Toolbar';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useGlobalAnnotations } from './hooks/useGlobalAnnotations';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { isPenActive, isAnyDrawingToolActive, getActiveToolType } from './utils/penDetection';
 import { StorageManager } from './utils/storage';
 import { isPDFFile, formatFileSize, generateId } from './utils/helpers';
 import { ToolType, ToolSettings, Tab, WindowLayout } from './types';
@@ -26,6 +27,24 @@ function App() {
     fontSize: 16,
     eraserSize: 20,
   });
+
+  // Protected tool change function
+  const handleToolChange = useCallback((newTool: ToolType, source: string) => {
+    console.log(`🔧 handleToolChange - Attempting to change tool to "${newTool}" from ${source}`);
+    console.log(`🔧 handleToolChange - Current tool: "${toolSettings.currentTool}"`);
+
+    // CRITICAL: Block ALL tool changes when ANY drawing tool is actively being used
+    const anyToolActive = isAnyDrawingToolActive();
+    const activeToolType = getActiveToolType();
+
+    if (anyToolActive && activeToolType === toolSettings.currentTool) {
+      console.log(`🚫 handleToolChange - BLOCKED! ${activeToolType} is active, refusing to change from ${toolSettings.currentTool} to ${newTool}`);
+      return;
+    }
+
+    console.log(`✅ handleToolChange - Changing tool from "${toolSettings.currentTool}" to "${newTool}" (source: ${source})`);
+    setToolSettings((prev) => ({ ...prev, currentTool: newTool }));
+  }, [toolSettings.currentTool]);
 
   const storage = StorageManager.getInstance();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -369,8 +388,7 @@ function App() {
     onRedo: redo,
     onSave: handleSave,
     onOpen: () => fileInputRef.current?.click(),
-    onToolChange: (tool: ToolType) =>
-      setToolSettings((prev) => ({ ...prev, currentTool: tool })),
+    onToolChange: (tool: ToolType) => handleToolChange(tool, 'keyboard'),
     onZoomIn: handleZoomIn,
     onZoomOut: handleZoomOut,
     onNextPage: handleNextPage,
@@ -441,9 +459,7 @@ function App() {
         canUndo={canUndo}
         canRedo={canRedo}
         isFullscreen={isFullscreen}
-        onToolChange={(tool) =>
-          setToolSettings((prev) => ({ ...prev, currentTool: tool }))
-        }
+        onToolChange={(tool) => handleToolChange(tool, 'toolbar')}
         onColorChange={(color) =>
           setToolSettings((prev) => ({ ...prev, color }))
         }
@@ -496,7 +512,7 @@ function App() {
           onFileUpload={handleFileUpload}
           hasUnsavedChanges={hasUnsavedChanges}
           markAsSaved={markAsSaved}
-          onToolChange={(tool) => setToolSettings((prev) => ({ ...prev, currentTool: tool }))}
+          onToolChange={(tool) => handleToolChange(tool, 'windowManager')}
         />
       </div>
 
