@@ -108,10 +108,37 @@ export class StorageManager {
 
   // Generate file hash for PDF identification
   async generateFileHash(file: File): Promise<string> {
-    const buffer = await file.arrayBuffer();
-    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    try {
+      // Check if Web Crypto API is available
+      if (!crypto || !crypto.subtle || !crypto.subtle.digest) {
+        console.warn('🔒 Web Crypto API not available, using fallback hash');
+        return this.generateFallbackHash(file);
+      }
+
+      const buffer = await file.arrayBuffer();
+      const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      return hashHex;
+    } catch (error) {
+      console.warn('🔒 Crypto.subtle.digest failed, using fallback:', error);
+      return this.generateFallbackHash(file);
+    }
+  }
+
+  // Fallback hash generation for environments without Web Crypto API
+  private generateFallbackHash(file: File): string {
+    // Simple hash based on file properties
+    const data = `${file.name}-${file.size}-${file.lastModified}`;
+    let hash = 0;
+    for (let i = 0; i < data.length; i++) {
+      const char = data.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    // Convert to positive hex string
+    const hashHex = Math.abs(hash).toString(16).padStart(8, '0');
+    console.log(`🔒 Generated fallback hash: ${hashHex} for ${file.name}`);
     return hashHex;
   }
 

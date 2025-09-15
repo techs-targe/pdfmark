@@ -37,7 +37,7 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
   onAnnotationRemove,
   onAnnotationUpdate,
   onDocumentLoad,
-  onFileUpload: _onFileUpload,  // Currently unused
+  onFileUpload,
   onSaveAnnotations,
   onLoadAnnotations,
   hasUnsavedChanges,
@@ -48,18 +48,26 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
   const [panes, setPanes] = useState<WindowPane[]>([
     {
       id: 'pane_1',
-      tabs: [{ 
-        id: 'tab_1', 
-        name: pdfFile ? pdfFile.name.replace('.pdf', '').slice(0, 20) : 'Main', 
+      tabs: [{
+        id: 'tab_1',
+        name: pdfFile ? pdfFile.name.replace('.pdf', '').slice(0, 20) : 'Main',
         file: pdfFile ?? undefined,
         fileName: pdfFile?.name,
-        currentPage: 1, 
+        currentPage: 1,
         zoomLevel: 'fit-width',
         lastUpdated: Date.now()
       }],
       activeTabId: 'tab_1',
     }
   ]);
+
+  // Debug: Track WindowManager state (only when files change)
+  React.useEffect(() => {
+    const tabFile = panes[0]?.tabs[0]?.file?.name;
+    if (pdfFile?.name || tabFile) {
+      console.log(`🪟 WINDOWMANAGER: pdfFile=${pdfFile?.name || 'null'}, tabFile=${tabFile || 'null'}`);
+    }
+  }, [pdfFile?.name, panes[0]?.tabs[0]?.file?.name]);
   
   // Update tabs when main file changes
   React.useEffect(() => {
@@ -592,8 +600,16 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
             });
           }}
           onFileUpload={(file) => {
+            console.log(`🪟 WindowManager: File uploaded: ${file.name}`);
+
+            // CRITICAL FIX: Notify parent App.tsx about file upload
+            if (onFileUpload) {
+              console.log(`🪟 WindowManager: Notifying parent App.tsx about file: ${file.name}`);
+              onFileUpload(file);
+            }
+
             const timestamp = Date.now();
-            
+
             setPanes(prevPanes => {
               // Create a new tab for all panes
               const newTabBase = {

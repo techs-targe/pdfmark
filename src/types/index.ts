@@ -159,3 +159,36 @@ export const ZOOM_PRESETS = [
   { label: 'Fit Width', value: 'fit-width' },
   { label: 'Fit Page', value: 'fit-page' },
 ] as const;
+
+// Auto-save types
+export interface AutoSaveEntry {
+  id: string;
+  fileHash: string;
+  fileName: string;
+  timestamp: number;
+  annotations: Record<string, Annotation[]>; // pageKey -> annotations
+  tabs: Tab[];
+  annotationCount: number;
+  lastModified: number;
+}
+
+export interface AutoSaveConfig {
+  enabled: boolean;
+  interval: number; // milliseconds (default: 30000)
+  maxAutoSaves: number; // maximum number of auto-saves to keep per file (default: 5)
+  retentionDays: number; // days to keep auto-saves (default: 7)
+}
+
+export interface RecoveryDialogData {
+  autoSaveEntry: AutoSaveEntry;
+  currentAnnotationCount: number;
+  timeDifference: number; // milliseconds since auto-save
+}
+
+// Default auto-save configuration
+export const DEFAULT_AUTO_SAVE_CONFIG: AutoSaveConfig = {
+  enabled: true,
+  interval: 30000, // 30 seconds
+  maxAutoSaves: 5,
+  retentionDays: 7,
+};
