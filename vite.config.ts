@@ -57,8 +57,8 @@ export default defineConfig(({ mode }) => {
     define: {
       __BUILD_DATE__: JSON.stringify(new Date().toISOString().split('T')[0])
     },
-    // Use base path from environment variable, default to '/'
-    base: env.VITE_BASE_PATH || '/',
+    // Use base path from environment variable, default to relative path for GitHub Pages
+    base: env.VITE_BASE_PATH || './',
     server: {
       port: 4567,
       host: '0.0.0.0',
