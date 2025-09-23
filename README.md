@@ -2,7 +2,7 @@
 
 A web-based PDF viewer with non-destructive annotation capabilities, designed for study purposes such as IPA exams and educational materials.
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue)
+![Version](https://img.shields.io/badge/version-1.0.3-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![TypeScript](https://img.shields.io/badge/TypeScript-4.9%2B-blue)
 ![React](https://img.shields.io/badge/React-18.3-61DAFB)
@@ -47,7 +47,7 @@ npm install
 npm run dev
 ```
 
-The application will open at `http://localhost:3000`
+The application will open at `http://localhost:4567`
 
 ## Usage
 
