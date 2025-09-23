@@ -2,6 +2,12 @@
 
 A web-based PDF viewer with non-destructive annotation capabilities, designed for study purposes such as IPA exams and educational materials.
 
+## 🚀 Try it Live
+
+**[→ Launch PDFMark](https://techs-targe.github.io/pdfmark/)** - No installation required!
+
+Simply click the link above, drag and drop a PDF file, and start annotating immediately.
+
 ![Version](https://img.shields.io/badge/version-1.0.3-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![TypeScript](https://img.shields.io/badge/TypeScript-4.9%2B-blue)
@@ -28,13 +34,18 @@ A web-based PDF viewer with non-destructive annotation capabilities, designed fo
 - 🎨 **Color Presets** - 8 preset colors plus custom color picker
 - 📱 **Touch Support** - Works on tablets for handwritten notes
 
-## Installation
+## Quick Start
 
-### Prerequisites
+### For Users
+**No installation needed!** Simply visit the [live demo](https://techs-targe.github.io/pdfmark/) and start using PDFMark immediately.
+
+### For Developers
+
+#### Prerequisites
 - Node.js 18.0 or higher
 - npm 9.0 or higher
 
-### Setup
+#### Setup
 ```bash
 # Clone the repository
 git clone https://github.com/techs-targe/pdfmark.git
@@ -47,7 +58,7 @@ npm install
 npm run dev
 ```
 
-The application will open at `http://localhost:4567`
+The development server will open at `http://localhost:4567`
 
 ## Usage
 
