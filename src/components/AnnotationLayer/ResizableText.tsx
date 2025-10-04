@@ -41,7 +41,8 @@ export const ResizableText: React.FC<ResizableTextProps> = ({
   const boxWidth = annotation.width ? annotation.width * canvasWidth : 200;
   const boxHeight = annotation.height ? annotation.height * canvasHeight : annotation.fontSize * 1.5;
 
-  // Calculate font size to fit the box
+  // Calculate font size to fit the box (currently unused but may be needed for future dynamic sizing)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _fontSize = useMemo(() => {
     if (annotation.width && annotation.height) {
       // Calculate font size based on box dimensions

@@ -25,6 +25,7 @@ interface SimplePDFViewerProps {
   onAnnotationUpdate?: (annotationId: string, updates: Partial<Annotation>) => void;
   onScrollChange?: (position: { x: number; y: number }) => void;
   onZoomChange?: (zoom: number | 'fit-width' | 'fit-page') => void;
+  onToolChange?: (tool: ToolType) => void;
 }
 
 interface PageInfo {
@@ -33,6 +34,28 @@ interface PageInfo {
   canvas?: HTMLCanvasElement;
   rendered: boolean;
 }
+
+// Helper functions for touch gestures
+const getMultiTouchDistance = (touches: TouchList): number => {
+  if (touches.length < 2) return 0;
+  const dx = touches[0].clientX - touches[1].clientX;
+  const dy = touches[0].clientY - touches[1].clientY;
+  return Math.sqrt(dx * dx + dy * dy);
+};
+
+const getTouchCenter = (touches: TouchList): { x: number; y: number } | null => {
+  if (touches.length === 0) return null;
+  let sumX = 0;
+  let sumY = 0;
+  for (let i = 0; i < touches.length; i++) {
+    sumX += touches[i].clientX;
+    sumY += touches[i].clientY;
+  }
+  return {
+    x: sumX / touches.length,
+    y: sumY / touches.length
+  };
+};
 
 export const ContinuousPDFViewer = memo<SimplePDFViewerProps>(({
   file,
@@ -476,7 +499,7 @@ export const ContinuousPDFViewer = memo<SimplePDFViewerProps>(({
       if (lastFiveFingerTap && now - lastFiveFingerTap.time < 300) {
         // 5-finger double tap for fit-to-width
         e.preventDefault();
-        onZoomChange('fit-width');
+        onZoomChange?.('fit-width');
         setLastFiveFingerTap(null);
       } else {
         setLastFiveFingerTap({ time: now });

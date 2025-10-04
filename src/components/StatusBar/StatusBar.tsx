@@ -9,6 +9,7 @@ const PRESET_TIMES = [
   { label: '120分', minutes: 120 },
   { label: '150分', minutes: 150 },
   { label: '180分', minutes: 180 },
+  { label: '240分', minutes: 240 },
 ];
 
 interface StatusBarProps {

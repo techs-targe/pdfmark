@@ -24,6 +24,7 @@ interface AnnotationLayerProps {
   onAnnotationAdd: (annotation: Annotation) => void;
   onAnnotationRemove: (annotationId: string) => void;
   onAnnotationUpdate?: (annotationId: string, updates: Partial<Annotation>) => void;
+  onToolChange?: (tool: ToolType) => void;
   isDisabled?: boolean;
 }
 
@@ -37,6 +38,7 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
   onAnnotationAdd,
   onAnnotationRemove,
   onAnnotationUpdate,
+  onToolChange,
   isDisabled = false,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -46,6 +48,7 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
   const [editingAnnotation, setEditingAnnotation] = useState<string | null>(null);
   const initialTouchDistanceRef = useRef<number | null>(null);
   const lastTouchCountRef = useRef<number>(0);
+  const previousToolRef = useRef<ToolType | null>(null);
   const [tools, setTools] = useState<{
     pen: PenTool | null;
     eraser: EraserTool | null;
@@ -502,6 +505,22 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
       if (isDisabled) return;
       if (!tools.pen || !tools.eraser || !tools.line || !tools.text) return;
 
+      // Handle middle mouse button click for tool toggle
+      if ('button' in event && event.button === 1 && onToolChange) {
+        event.preventDefault();
+        if (currentTool === 'select') {
+          // Switch back to previous tool
+          if (previousToolRef.current) {
+            onToolChange(previousToolRef.current);
+          }
+        } else {
+          // Save current tool and switch to select
+          previousToolRef.current = currentTool;
+          onToolChange('select');
+        }
+        return;
+      }
+
       // Check if this is a pen/stylus input using our robust detection
       const isPenInput = isPenEvent(event.nativeEvent || event);
 
@@ -583,7 +602,7 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
           break;
       }
     },
-    [currentTool, tools, pageNumber, getTextAnnotationAtPoint, isDisabled, isMultiFingerGesture]
+    [currentTool, tools, pageNumber, getTextAnnotationAtPoint, isDisabled, isMultiFingerGesture, onToolChange]
   );
 
   const handlePointerMove = useCallback(
