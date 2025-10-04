@@ -54,12 +54,12 @@ export const ResizableText: React.FC<ResizableTextProps> = ({
         let testFontSize = 16;
         tempCtx.font = `${testFontSize}px sans-serif`;
         const metrics = tempCtx.measureText(annotation.content);
-        
+
         // Calculate how much we need to scale the font
         const widthRatio = (boxWidth * 0.9) / metrics.width; // 0.9 for padding
         const heightRatio = (boxHeight * 0.8) / testFontSize; // 0.8 for padding
         const scaleFactor = Math.min(widthRatio, heightRatio);
-        
+
         // Apply the scale factor
         return Math.max(8, Math.min(200, testFontSize * scaleFactor));
       }
@@ -67,6 +67,7 @@ export const ResizableText: React.FC<ResizableTextProps> = ({
     // Fallback to a reasonable default
     return Math.min(boxHeight * 0.7, annotation.fontSize);
   }, [annotation.width, annotation.height, annotation.content, annotation.fontSize, boxWidth, boxHeight]);
+  void _fontSize; // Prevent TypeScript unused variable error
 
   const handleMouseDown = useCallback((e: React.MouseEvent, handle: string) => {
     e.preventDefault();

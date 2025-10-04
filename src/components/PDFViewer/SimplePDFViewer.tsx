@@ -360,7 +360,8 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
     setIsCtrlZooming(false);
   }, []);
 
-  // Calculate distance between two touch points
+  // Calculate distance between two touch points (reserved for future use)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getTouchDistance = (touches: React.TouchList) => {
     if (touches.length < 2) return null;
     const dx = touches[0].clientX - touches[1].clientX;

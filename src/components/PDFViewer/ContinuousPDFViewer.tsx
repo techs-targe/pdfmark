@@ -36,14 +36,14 @@ interface PageInfo {
 }
 
 // Helper functions for touch gestures
-const getMultiTouchDistance = (touches: TouchList): number => {
+const getMultiTouchDistance = (touches: React.TouchList): number => {
   if (touches.length < 2) return 0;
   const dx = touches[0].clientX - touches[1].clientX;
   const dy = touches[0].clientY - touches[1].clientY;
   return Math.sqrt(dx * dx + dy * dy);
 };
 
-const getTouchCenter = (touches: TouchList): { x: number; y: number } | null => {
+const getTouchCenter = (touches: React.TouchList): { x: number; y: number } | null => {
   if (touches.length === 0) return null;
   let sumX = 0;
   let sumY = 0;
@@ -287,7 +287,7 @@ export const ContinuousPDFViewer = memo<SimplePDFViewerProps>(({
     pageObserverRef.current = observer;
 
     // Observe all page divs
-    pageRefs.current.forEach((div, pageNum) => {
+    pageRefs.current.forEach((div) => {
       observer.observe(div);
     });
 
