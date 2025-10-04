@@ -1,4 +1,4 @@
-import { StorageData, Annotation } from '../types';
+import { StorageData } from '../types';
 
 const STORAGE_KEY = 'pdfmark_data';
 const STORAGE_VERSION = '1.0.0';
