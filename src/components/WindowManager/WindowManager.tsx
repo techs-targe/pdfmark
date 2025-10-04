@@ -93,6 +93,14 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
   const [splitRatioH, setSplitRatioH] = useState(0.5); // Horizontal split for tile mode
   const [isDraggingDivider, setIsDraggingDivider] = useState(false);
   const [isDraggingDividerH, setIsDraggingDividerH] = useState(false); // Horizontal divider for tile mode
+
+  // Tile 3x2 vertical dividers (2 dividers creating 3 columns)
+  const [tile3x2Dividers, setTile3x2Dividers] = useState([0.333, 0.666]);
+  const [draggingTile3x2Divider, setDraggingTile3x2Divider] = useState<number | null>(null);
+
+  // Tile 4x2 vertical dividers (3 dividers creating 4 columns)
+  const [tile4x2Dividers, setTile4x2Dividers] = useState([0.25, 0.5, 0.75]);
+  const [draggingTile4x2Divider, setDraggingTile4x2Divider] = useState<number | null>(null);
   
   // Confirm dialog state
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -904,14 +912,14 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
   }, []);
 
   const handleDividerMouseMove = useCallback((e: MouseEvent) => {
-    if (!isDraggingDivider && !isDraggingDividerH) return;
-    
+    if (!isDraggingDivider && !isDraggingDividerH && draggingTile3x2Divider === null && draggingTile4x2Divider === null) return;
+
     const container = document.querySelector('.window-manager-container');
     if (!container) return;
-    
+
     const rect = container.getBoundingClientRect();
     let newRatio: number;
-    
+
     if (isDraggingDivider) {
       if (layout === 'vertical' || layout === 'tile-2x2') {
         newRatio = (e.clientX - rect.left) / rect.width;
@@ -926,25 +934,75 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
       newRatio = (e.clientY - rect.top) / rect.height;
       setSplitRatioH(Math.max(0.1, Math.min(0.9, newRatio)));
     }
-  }, [isDraggingDivider, isDraggingDividerH, layout]);
+
+    // Handle tile-3x2 vertical dividers
+    if (draggingTile3x2Divider !== null && layout === 'tile-3x2') {
+      newRatio = (e.clientX - rect.left) / rect.width;
+      const newDividers = [...tile3x2Dividers];
+
+      // Constrain divider position based on neighbors
+      const minPos = draggingTile3x2Divider === 0 ? 0.1 : tile3x2Dividers[draggingTile3x2Divider - 1] + 0.1;
+      const maxPos = draggingTile3x2Divider === tile3x2Dividers.length - 1 ? 0.9 : tile3x2Dividers[draggingTile3x2Divider + 1] - 0.1;
+
+      newDividers[draggingTile3x2Divider] = Math.max(minPos, Math.min(maxPos, newRatio));
+      setTile3x2Dividers(newDividers);
+    }
+
+    // Handle tile-4x2 vertical dividers
+    if (draggingTile4x2Divider !== null && layout === 'tile-4x2') {
+      newRatio = (e.clientX - rect.left) / rect.width;
+      const newDividers = [...tile4x2Dividers];
+
+      // Constrain divider position based on neighbors
+      const minPos = draggingTile4x2Divider === 0 ? 0.1 : tile4x2Dividers[draggingTile4x2Divider - 1] + 0.1;
+      const maxPos = draggingTile4x2Divider === tile4x2Dividers.length - 1 ? 0.9 : tile4x2Dividers[draggingTile4x2Divider + 1] - 0.1;
+
+      newDividers[draggingTile4x2Divider] = Math.max(minPos, Math.min(maxPos, newRatio));
+      setTile4x2Dividers(newDividers);
+    }
+  }, [isDraggingDivider, isDraggingDividerH, draggingTile3x2Divider, draggingTile4x2Divider, layout, tile3x2Dividers, tile4x2Dividers]);
 
   const handleDividerMouseUp = useCallback(() => {
     setIsDraggingDivider(false);
     setIsDraggingDividerH(false);
+    setDraggingTile3x2Divider(null);
+    setDraggingTile4x2Divider(null);
+  }, []);
+
+  // Tile 3x2 divider handlers
+  const handleTile3x2DividerMouseDown = useCallback((e: React.MouseEvent, dividerIndex: number) => {
+    e.preventDefault();
+    setDraggingTile3x2Divider(dividerIndex);
+  }, []);
+
+  const handleTile3x2DividerTouchStart = useCallback((e: React.TouchEvent, dividerIndex: number) => {
+    e.preventDefault();
+    setDraggingTile3x2Divider(dividerIndex);
+  }, []);
+
+  // Tile 4x2 divider handlers
+  const handleTile4x2DividerMouseDown = useCallback((e: React.MouseEvent, dividerIndex: number) => {
+    e.preventDefault();
+    setDraggingTile4x2Divider(dividerIndex);
+  }, []);
+
+  const handleTile4x2DividerTouchStart = useCallback((e: React.TouchEvent, dividerIndex: number) => {
+    e.preventDefault();
+    setDraggingTile4x2Divider(dividerIndex);
   }, []);
 
   // Touch event handlers for mobile
   const handleDividerTouchMove = useCallback((e: TouchEvent) => {
-    if (!isDraggingDivider && !isDraggingDividerH) return;
+    if (!isDraggingDivider && !isDraggingDividerH && draggingTile3x2Divider === null && draggingTile4x2Divider === null) return;
     if (e.touches.length !== 1) return;
-    
+
     const touch = e.touches[0];
     const container = document.querySelector('.window-manager-container');
     if (!container) return;
-    
+
     const rect = container.getBoundingClientRect();
     let newRatio: number;
-    
+
     if (isDraggingDivider) {
       if (layout === 'vertical' || layout === 'tile-2x2') {
         newRatio = (touch.clientX - rect.left) / rect.width;
@@ -959,32 +1017,58 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
       newRatio = (touch.clientY - rect.top) / rect.height;
       setSplitRatioH(Math.max(0.1, Math.min(0.9, newRatio)));
     }
-  }, [isDraggingDivider, isDraggingDividerH, layout]);
+
+    // Handle tile-3x2 vertical dividers
+    if (draggingTile3x2Divider !== null && layout === 'tile-3x2') {
+      newRatio = (touch.clientX - rect.left) / rect.width;
+      const newDividers = [...tile3x2Dividers];
+
+      const minPos = draggingTile3x2Divider === 0 ? 0.1 : tile3x2Dividers[draggingTile3x2Divider - 1] + 0.1;
+      const maxPos = draggingTile3x2Divider === tile3x2Dividers.length - 1 ? 0.9 : tile3x2Dividers[draggingTile3x2Divider + 1] - 0.1;
+
+      newDividers[draggingTile3x2Divider] = Math.max(minPos, Math.min(maxPos, newRatio));
+      setTile3x2Dividers(newDividers);
+    }
+
+    // Handle tile-4x2 vertical dividers
+    if (draggingTile4x2Divider !== null && layout === 'tile-4x2') {
+      newRatio = (touch.clientX - rect.left) / rect.width;
+      const newDividers = [...tile4x2Dividers];
+
+      const minPos = draggingTile4x2Divider === 0 ? 0.1 : tile4x2Dividers[draggingTile4x2Divider - 1] + 0.1;
+      const maxPos = draggingTile4x2Divider === tile4x2Dividers.length - 1 ? 0.9 : tile4x2Dividers[draggingTile4x2Divider + 1] - 0.1;
+
+      newDividers[draggingTile4x2Divider] = Math.max(minPos, Math.min(maxPos, newRatio));
+      setTile4x2Dividers(newDividers);
+    }
+  }, [isDraggingDivider, isDraggingDividerH, draggingTile3x2Divider, draggingTile4x2Divider, layout, tile3x2Dividers, tile4x2Dividers]);
 
   const handleDividerTouchEnd = useCallback(() => {
     setIsDraggingDivider(false);
     setIsDraggingDividerH(false);
+    setDraggingTile3x2Divider(null);
+    setDraggingTile4x2Divider(null);
   }, []);
 
   // Set up and tear down mouse and touch event listeners for divider dragging
   React.useEffect(() => {
-    if (isDraggingDivider || isDraggingDividerH) {
+    if (isDraggingDivider || isDraggingDividerH || draggingTile3x2Divider !== null || draggingTile4x2Divider !== null) {
       // Mouse events
       document.addEventListener('mousemove', handleDividerMouseMove);
       document.addEventListener('mouseup', handleDividerMouseUp);
-      
+
       // Touch events for mobile
       document.addEventListener('touchmove', handleDividerTouchMove, { passive: false });
       document.addEventListener('touchend', handleDividerTouchEnd);
       document.addEventListener('touchcancel', handleDividerTouchEnd);
-      
-      if (isDraggingDivider) {
-        document.body.style.cursor = (layout === 'vertical' || layout === 'tile-2x2') ? 'col-resize' : 'row-resize';
+
+      if (isDraggingDivider || draggingTile3x2Divider !== null || draggingTile4x2Divider !== null) {
+        document.body.style.cursor = (layout === 'vertical' || layout === 'tile-2x2' || layout === 'tile-3x2' || layout === 'tile-4x2') ? 'col-resize' : 'row-resize';
       } else if (isDraggingDividerH) {
         document.body.style.cursor = 'row-resize';
       }
       document.body.style.userSelect = 'none';
-      
+
       return () => {
         document.removeEventListener('mousemove', handleDividerMouseMove);
         document.removeEventListener('mouseup', handleDividerMouseUp);
@@ -995,7 +1079,7 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
         document.body.style.userSelect = 'auto';
       };
     }
-  }, [isDraggingDivider, isDraggingDividerH, handleDividerMouseMove, handleDividerMouseUp, handleDividerTouchMove, handleDividerTouchEnd, layout]);
+  }, [isDraggingDivider, isDraggingDividerH, draggingTile3x2Divider, draggingTile4x2Divider, handleDividerMouseMove, handleDividerMouseUp, handleDividerTouchMove, handleDividerTouchEnd, layout]);
 
   const renderLayout = () => {
     switch (layout) {
@@ -1153,25 +1237,32 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
         );
 
       case 'tile-3x2':
+        // Calculate column widths from divider positions
+        const tile3x2ColumnWidths = [
+          tile3x2Dividers[0] * 100,
+          (tile3x2Dividers[1] - tile3x2Dividers[0]) * 100,
+          (1 - tile3x2Dividers[1]) * 100
+        ];
+
         return (
           <div className="h-full flex flex-col relative">
             {/* Top row: 3 panes */}
             <div className="flex" style={{ height: `${splitRatioH * 100}%` }}>
               <div
                 className="border-r border-b border-gray-700"
-                style={{ width: '33.333%' }}
+                style={{ width: `${tile3x2ColumnWidths[0]}%` }}
               >
                 {renderPane(panes[0], activePaneId === panes[0]?.id)}
               </div>
               <div
                 className="border-r border-b border-gray-700"
-                style={{ width: '33.333%' }}
+                style={{ width: `${tile3x2ColumnWidths[1]}%` }}
               >
                 {panes[1] && renderPane(panes[1], activePaneId === panes[1]?.id)}
               </div>
               <div
                 className="border-b border-gray-700"
-                style={{ width: '33.333%' }}
+                style={{ width: `${tile3x2ColumnWidths[2]}%` }}
               >
                 {panes[2] && renderPane(panes[2], activePaneId === panes[2]?.id)}
               </div>
@@ -1196,22 +1287,44 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
               </div>
             </div>
 
+            {/* Vertical dividers */}
+            {tile3x2Dividers.map((dividerPos, index) => (
+              <div
+                key={`tile3x2-divider-${index}`}
+                className="absolute top-0 bottom-0 w-2 hover:w-3 bg-gray-600 hover:bg-blue-500 cursor-col-resize z-20 transition-all touch-none"
+                style={{
+                  left: `calc(${dividerPos * 100}% - 4px)`,
+                  transition: draggingTile3x2Divider === index ? 'none' : 'all 0.2s'
+                }}
+                onMouseDown={(e) => handleTile3x2DividerMouseDown(e, index)}
+                onTouchStart={(e) => handleTile3x2DividerTouchStart(e, index)}
+                title="Drag to resize columns"
+              >
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="flex gap-0.5">
+                    <div className="w-0.5 h-6 bg-gray-400"></div>
+                    <div className="w-0.5 h-6 bg-gray-400"></div>
+                  </div>
+                </div>
+              </div>
+            ))}
+
             {/* Bottom row: 3 panes */}
             <div className="flex" style={{ height: `${(1 - splitRatioH) * 100}%` }}>
               <div
                 className="border-r border-gray-700"
-                style={{ width: '33.333%' }}
+                style={{ width: `${tile3x2ColumnWidths[0]}%` }}
               >
                 {panes[3] && renderPane(panes[3], activePaneId === panes[3]?.id)}
               </div>
               <div
                 className="border-r border-gray-700"
-                style={{ width: '33.333%' }}
+                style={{ width: `${tile3x2ColumnWidths[1]}%` }}
               >
                 {panes[4] && renderPane(panes[4], activePaneId === panes[4]?.id)}
               </div>
               <div
-                style={{ width: '33.333%' }}
+                style={{ width: `${tile3x2ColumnWidths[2]}%` }}
               >
                 {panes[5] && renderPane(panes[5], activePaneId === panes[5]?.id)}
               </div>
@@ -1220,31 +1333,39 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
         );
 
       case 'tile-4x2':
+        // Calculate column widths from divider positions
+        const tile4x2ColumnWidths = [
+          tile4x2Dividers[0] * 100,
+          (tile4x2Dividers[1] - tile4x2Dividers[0]) * 100,
+          (tile4x2Dividers[2] - tile4x2Dividers[1]) * 100,
+          (1 - tile4x2Dividers[2]) * 100
+        ];
+
         return (
           <div className="h-full flex flex-col relative">
             {/* Top row: 4 panes */}
             <div className="flex" style={{ height: `${splitRatioH * 100}%` }}>
               <div
                 className="border-r border-b border-gray-700"
-                style={{ width: '25%' }}
+                style={{ width: `${tile4x2ColumnWidths[0]}%` }}
               >
                 {renderPane(panes[0], activePaneId === panes[0]?.id)}
               </div>
               <div
                 className="border-r border-b border-gray-700"
-                style={{ width: '25%' }}
+                style={{ width: `${tile4x2ColumnWidths[1]}%` }}
               >
                 {panes[1] && renderPane(panes[1], activePaneId === panes[1]?.id)}
               </div>
               <div
                 className="border-r border-b border-gray-700"
-                style={{ width: '25%' }}
+                style={{ width: `${tile4x2ColumnWidths[2]}%` }}
               >
                 {panes[2] && renderPane(panes[2], activePaneId === panes[2]?.id)}
               </div>
               <div
                 className="border-b border-gray-700"
-                style={{ width: '25%' }}
+                style={{ width: `${tile4x2ColumnWidths[3]}%` }}
               >
                 {panes[3] && renderPane(panes[3], activePaneId === panes[3]?.id)}
               </div>
@@ -1269,28 +1390,50 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
               </div>
             </div>
 
+            {/* Vertical dividers */}
+            {tile4x2Dividers.map((dividerPos, index) => (
+              <div
+                key={`tile4x2-divider-${index}`}
+                className="absolute top-0 bottom-0 w-2 hover:w-3 bg-gray-600 hover:bg-blue-500 cursor-col-resize z-20 transition-all touch-none"
+                style={{
+                  left: `calc(${dividerPos * 100}% - 4px)`,
+                  transition: draggingTile4x2Divider === index ? 'none' : 'all 0.2s'
+                }}
+                onMouseDown={(e) => handleTile4x2DividerMouseDown(e, index)}
+                onTouchStart={(e) => handleTile4x2DividerTouchStart(e, index)}
+                title="Drag to resize columns"
+              >
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="flex gap-0.5">
+                    <div className="w-0.5 h-6 bg-gray-400"></div>
+                    <div className="w-0.5 h-6 bg-gray-400"></div>
+                  </div>
+                </div>
+              </div>
+            ))}
+
             {/* Bottom row: 4 panes */}
             <div className="flex" style={{ height: `${(1 - splitRatioH) * 100}%` }}>
               <div
                 className="border-r border-gray-700"
-                style={{ width: '25%' }}
+                style={{ width: `${tile4x2ColumnWidths[0]}%` }}
               >
                 {panes[4] && renderPane(panes[4], activePaneId === panes[4]?.id)}
               </div>
               <div
                 className="border-r border-gray-700"
-                style={{ width: '25%' }}
+                style={{ width: `${tile4x2ColumnWidths[1]}%` }}
               >
                 {panes[5] && renderPane(panes[5], activePaneId === panes[5]?.id)}
               </div>
               <div
                 className="border-r border-gray-700"
-                style={{ width: '25%' }}
+                style={{ width: `${tile4x2ColumnWidths[2]}%` }}
               >
                 {panes[6] && renderPane(panes[6], activePaneId === panes[6]?.id)}
               </div>
               <div
-                style={{ width: '25%' }}
+                style={{ width: `${tile4x2ColumnWidths[3]}%` }}
               >
                 {panes[7] && renderPane(panes[7], activePaneId === panes[7]?.id)}
               </div>
