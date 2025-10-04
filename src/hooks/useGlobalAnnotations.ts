@@ -84,7 +84,7 @@ export function useGlobalAnnotations(): UseGlobalAnnotationsReturn {
         if (annotationIndex !== -1) {
           updatedFileAnns[pageKey] = [
             ...pageAnnotations.slice(0, annotationIndex),
-            { ...pageAnnotations[annotationIndex], ...updates },
+            { ...pageAnnotations[annotationIndex], ...updates } as Annotation,
             ...pageAnnotations.slice(annotationIndex + 1)
           ];
           updated = true;

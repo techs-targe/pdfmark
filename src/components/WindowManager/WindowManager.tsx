@@ -571,6 +571,7 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
       });
     }
   }, []);
+  void handleWheel; // Prevent TypeScript unused variable error
 
   // Block browser zoom completely except in PDF areas
   React.useEffect(() => {

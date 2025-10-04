@@ -141,21 +141,4 @@ export class StorageManager {
     console.log(`🔒 Generated fallback hash: ${hashHex} for ${file.name}`);
     return hashHex;
   }
-
-  // Save annotations for specific page
-  savePageAnnotations(pageNumber: number, annotations: Annotation[]): void {
-    const data = this.load();
-    if (!data) return;
-
-    data.annotations[`page_${pageNumber}`] = annotations;
-    this.save(data);
-  }
-
-  // Load annotations for specific page
-  loadPageAnnotations(pageNumber: number): Annotation[] {
-    const data = this.load();
-    if (!data) return [];
-
-    return data.annotations[`page_${pageNumber}`] || [];
-  }
 }
