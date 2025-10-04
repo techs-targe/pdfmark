@@ -72,7 +72,7 @@ export interface ViewSettings {
 }
 
 // Window Layout modes
-export type WindowLayout = 'single' | 'vertical' | 'horizontal' | 'tile';
+export type WindowLayout = 'single' | 'vertical' | 'horizontal' | 'tile-2x2' | 'tile-3x2' | 'tile-4x2';
 
 // Window/Pane definition
 export interface WindowPane {

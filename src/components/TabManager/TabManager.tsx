@@ -9,6 +9,7 @@ interface TabManagerProps {
   onTabAdd: () => void;
   onTabRemove: (tabId: string) => void;
   onTabRename: (tabId: string, newName: string) => void;
+  onTabReorder?: (fromIndex: number, toIndex: number) => void;
   onFileSelect?: (tabId: string) => void;
 }
 
@@ -19,11 +20,14 @@ export const TabManager: React.FC<TabManagerProps> = ({
   onTabAdd,
   onTabRemove,
   onTabRename,
+  onTabReorder,
   onFileSelect: _onFileSelect,
 }) => {
   const [editingTab, setEditingTab] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [hoveredTab, setHoveredTab] = useState<string | null>(null);
+  const [draggedTabIndex, setDraggedTabIndex] = useState<number | null>(null);
+  const [dragOverTabIndex, setDragOverTabIndex] = useState<number | null>(null);
 
   const handleStartEdit = useCallback((tab: Tab) => {
     setEditingTab(tab.id);
@@ -47,14 +51,53 @@ export const TabManager: React.FC<TabManagerProps> = ({
     }
   }, [handleFinishEdit]);
 
+  // Drag and drop handlers
+  const handleDragStart = useCallback((e: React.DragEvent, index: number) => {
+    setDraggedTabIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', e.currentTarget.innerHTML);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverTabIndex(index);
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    setDragOverTabIndex(null);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedTabIndex !== null && draggedTabIndex !== index && onTabReorder) {
+      onTabReorder(draggedTabIndex, index);
+    }
+    setDraggedTabIndex(null);
+    setDragOverTabIndex(null);
+  }, [draggedTabIndex, onTabReorder]);
+
+  const handleDragEnd = useCallback(() => {
+    setDraggedTabIndex(null);
+    setDragOverTabIndex(null);
+  }, []);
+
   return (
     <div className="flex items-center bg-tab-bg border-b border-gray-700 h-tabs overflow-x-auto">
       <div className="flex items-center">
-        {tabs.map((tab) => (
+        {tabs.map((tab, index) => (
           <div
             key={tab.id}
+            draggable={editingTab !== tab.id}
+            onDragStart={(e) => handleDragStart(e, index)}
+            onDragOver={(e) => handleDragOver(e, index)}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, index)}
+            onDragEnd={handleDragEnd}
             className={clsx('tab-item relative group', {
               active: tab.id === activeTabId,
+              'opacity-50': draggedTabIndex === index,
+              'border-l-2 border-blue-500': dragOverTabIndex === index && draggedTabIndex !== index,
             })}
             onClick={() => onTabChange(tab.id)}
           >

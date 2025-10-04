@@ -4,6 +4,7 @@ import { WindowManager } from './components/WindowManager/WindowManager';
 import { Toolbar } from './components/Toolbar/Toolbar';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { RecoveryDialog } from './components/AutoSave/RecoveryDialog';
+import { StatusBar } from './components/StatusBar/StatusBar';
 import { useGlobalAnnotations } from './hooks/useGlobalAnnotations';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { isPenActive, isAnyDrawingToolActive, getActiveToolType } from './utils/penDetection';
@@ -881,43 +882,17 @@ function App() {
         />
       </div>
 
-      {/* Status bar */}
-      <div className="status-bar">
-        <div className="flex items-center gap-4">
-          {pdfFile && (
-            <>
-              <span className="truncate max-w-xs">{pdfFile.name}</span>
-              <span className="text-gray-400">|</span>
-              <span>{formatFileSize(pdfFile.size)}</span>
-              <span className="text-gray-400">|</span>
-              <span>
-                Page {activeTab.currentPage} of {pdfDoc?.numPages || 0}
-              </span>
-              {windowLayout !== 'single' && (
-                <>
-                  <span className="text-gray-400">|</span>
-                  <span className="text-yellow-400">
-                    Layout: {windowLayout}
-                  </span>
-                </>
-              )}
-              {lastAutoSaveTime > 0 && (
-                <>
-                  <span className="text-gray-400">|</span>
-                  <span className="text-green-400">
-                    Auto-saved: {new Date(lastAutoSaveTime).toLocaleTimeString()}
-                  </span>
-                </>
-              )}
-            </>
-          )}
-        </div>
-        <div className="flex items-center gap-4">
-          <span>Tab: {activeTab.name}</span>
-          <span className="text-gray-400">|</span>
-          <span>Zoom: {typeof activeTab.zoomLevel === 'number' ? `${Math.round(activeTab.zoomLevel * 100)}%` : activeTab.zoomLevel}</span>
-        </div>
-      </div>
+      {/* Status bar with timer */}
+      <StatusBar
+        pdfFileName={pdfFile?.name}
+        pdfFileSize={pdfFile ? formatFileSize(pdfFile.size) : undefined}
+        currentPage={activeTab.currentPage}
+        totalPages={pdfDoc?.numPages || 0}
+        windowLayout={windowLayout}
+        lastAutoSaveTime={lastAutoSaveTime}
+        tabName={activeTab.name}
+        zoomLevel={activeTab.zoomLevel}
+      />
 
       {/* Auto-save Recovery Dialog */}
       <RecoveryDialog

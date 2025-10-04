@@ -296,23 +296,31 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             onClick={() => {
               if (windowLayout === 'single') onWindowLayoutChange('vertical');
               else if (windowLayout === 'vertical') onWindowLayoutChange('horizontal');
-              else if (windowLayout === 'horizontal') onWindowLayoutChange('tile');
+              else if (windowLayout === 'horizontal') onWindowLayoutChange('tile-2x2');
+              else if (windowLayout === 'tile-2x2') onWindowLayoutChange('tile-3x2');
+              else if (windowLayout === 'tile-3x2') onWindowLayoutChange('tile-4x2');
               else onWindowLayoutChange('single');
             }}
             className={`px-3 py-1 rounded text-sm ${
-              windowLayout === 'single' 
-                ? 'bg-gray-600 text-white' 
+              windowLayout === 'single'
+                ? 'bg-gray-600 text-white'
                 : windowLayout === 'vertical'
                 ? 'bg-blue-600 text-white'
                 : windowLayout === 'horizontal'
                 ? 'bg-green-600 text-white'
-                : 'bg-purple-600 text-white'
+                : windowLayout === 'tile-2x2'
+                ? 'bg-purple-600 text-white'
+                : windowLayout === 'tile-3x2'
+                ? 'bg-orange-600 text-white'
+                : 'bg-pink-600 text-white'
             }`}
           >
-            {windowLayout === 'single' ? '◻ Single' : 
-             windowLayout === 'vertical' ? '⬛ Vertical' : 
+            {windowLayout === 'single' ? '◻ Single' :
+             windowLayout === 'vertical' ? '⬛ Vertical' :
              windowLayout === 'horizontal' ? '⬜ Horizontal' :
-             '⬚ Tile'}
+             windowLayout === 'tile-2x2' ? '⬚ Tile(2x2)' :
+             windowLayout === 'tile-3x2' ? '⬚ Tile(3x2)' :
+             '⬚ Tile(4x2)'}
           </button>
         </div>
       )}

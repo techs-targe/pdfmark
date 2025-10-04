@@ -318,11 +318,26 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
       if (pane.id === paneId) {
         return {
           ...pane,
-          tabs: pane.tabs.map(tab => 
-            tab.id === tabId 
+          tabs: pane.tabs.map(tab =>
+            tab.id === tabId
               ? { ...tab, name: newName }
               : tab
           ),
+        };
+      }
+      return pane;
+    }));
+  }, []);
+
+  const handleTabReorder = useCallback((paneId: string, fromIndex: number, toIndex: number) => {
+    setPanes(prevPanes => prevPanes.map(pane => {
+      if (pane.id === paneId) {
+        const newTabs = [...pane.tabs];
+        const [movedTab] = newTabs.splice(fromIndex, 1);
+        newTabs.splice(toIndex, 0, movedTab);
+        return {
+          ...pane,
+          tabs: newTabs,
         };
       }
       return pane;
@@ -425,22 +440,72 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
           }
           break;
           
-        case 'tile':
-          // Create 4 panes with all tabs
-          const tileTimestamp = Date.now();
-          const tileTabs = uniqueTabs.length > 0 ? uniqueTabs : prevPanes[0].tabs;
-          
+        case 'tile-2x2':
+          // Create 4 panes (2x2) with all tabs
+          const tile2x2Timestamp = Date.now();
+          const tile2x2Tabs = uniqueTabs.length > 0 ? uniqueTabs : prevPanes[0].tabs;
+
           newPanes = [];
           for (let i = 0; i < 4; i++) {
             const paneId = `pane_${i + 1}`;
             const pane = prevPanes[i] || { id: paneId, activeTabId: '' };
-            
-            const paneTabs = tileTabs.map((tab, index) => ({
+
+            const paneTabs = tile2x2Tabs.map((tab, index) => ({
               ...tab,
               id: `tab_p${i + 1}_${index}`,
-              lastUpdated: tileTimestamp
+              lastUpdated: tile2x2Timestamp
             }));
-            
+
+            newPanes.push({
+              ...pane,
+              id: paneId,
+              tabs: paneTabs,
+              activeTabId: paneTabs[0]?.id || pane.activeTabId,
+            });
+          }
+          break;
+
+        case 'tile-3x2':
+          // Create 6 panes (3x2) with all tabs
+          const tile3x2Timestamp = Date.now();
+          const tile3x2Tabs = uniqueTabs.length > 0 ? uniqueTabs : prevPanes[0].tabs;
+
+          newPanes = [];
+          for (let i = 0; i < 6; i++) {
+            const paneId = `pane_${i + 1}`;
+            const pane = prevPanes[i] || { id: paneId, activeTabId: '' };
+
+            const paneTabs = tile3x2Tabs.map((tab, index) => ({
+              ...tab,
+              id: `tab_p${i + 1}_${index}`,
+              lastUpdated: tile3x2Timestamp
+            }));
+
+            newPanes.push({
+              ...pane,
+              id: paneId,
+              tabs: paneTabs,
+              activeTabId: paneTabs[0]?.id || pane.activeTabId,
+            });
+          }
+          break;
+
+        case 'tile-4x2':
+          // Create 8 panes (4x2) with all tabs
+          const tile4x2Timestamp = Date.now();
+          const tile4x2Tabs = uniqueTabs.length > 0 ? uniqueTabs : prevPanes[0].tabs;
+
+          newPanes = [];
+          for (let i = 0; i < 8; i++) {
+            const paneId = `pane_${i + 1}`;
+            const pane = prevPanes[i] || { id: paneId, activeTabId: '' };
+
+            const paneTabs = tile4x2Tabs.map((tab, index) => ({
+              ...tab,
+              id: `tab_p${i + 1}_${index}`,
+              lastUpdated: tile4x2Timestamp
+            }));
+
             newPanes.push({
               ...pane,
               id: paneId,
@@ -548,6 +613,7 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
           onTabAdd={() => handleTabAdd(pane.id)}
           onTabRemove={(tabId) => handleTabRemove(pane.id, tabId)}
           onTabRename={(tabId, newName) => handleTabRename(pane.id, tabId, newName)}
+          onTabReorder={(fromIndex, toIndex) => handleTabReorder(pane.id, fromIndex, toIndex)}
         />
         
         <WindowPaneHeader
@@ -847,7 +913,7 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
     let newRatio: number;
     
     if (isDraggingDivider) {
-      if (layout === 'vertical' || layout === 'tile') {
+      if (layout === 'vertical' || layout === 'tile-2x2') {
         newRatio = (e.clientX - rect.left) / rect.width;
         setSplitRatio(Math.max(0.1, Math.min(0.9, newRatio)));
       } else if (layout === 'horizontal') {
@@ -855,8 +921,8 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
         setSplitRatio(Math.max(0.1, Math.min(0.9, newRatio)));
       }
     }
-    
-    if (isDraggingDividerH && layout === 'tile') {
+
+    if (isDraggingDividerH && (layout === 'tile-2x2' || layout === 'tile-3x2' || layout === 'tile-4x2')) {
       newRatio = (e.clientY - rect.top) / rect.height;
       setSplitRatioH(Math.max(0.1, Math.min(0.9, newRatio)));
     }
@@ -880,7 +946,7 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
     let newRatio: number;
     
     if (isDraggingDivider) {
-      if (layout === 'vertical' || layout === 'tile') {
+      if (layout === 'vertical' || layout === 'tile-2x2') {
         newRatio = (touch.clientX - rect.left) / rect.width;
         setSplitRatio(Math.max(0.1, Math.min(0.9, newRatio)));
       } else if (layout === 'horizontal') {
@@ -888,8 +954,8 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
         setSplitRatio(Math.max(0.1, Math.min(0.9, newRatio)));
       }
     }
-    
-    if (isDraggingDividerH && layout === 'tile') {
+
+    if (isDraggingDividerH && (layout === 'tile-2x2' || layout === 'tile-3x2' || layout === 'tile-4x2')) {
       newRatio = (touch.clientY - rect.top) / rect.height;
       setSplitRatioH(Math.max(0.1, Math.min(0.9, newRatio)));
     }
@@ -913,7 +979,7 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
       document.addEventListener('touchcancel', handleDividerTouchEnd);
       
       if (isDraggingDivider) {
-        document.body.style.cursor = (layout === 'vertical' || layout === 'tile') ? 'col-resize' : 'row-resize';
+        document.body.style.cursor = (layout === 'vertical' || layout === 'tile-2x2') ? 'col-resize' : 'row-resize';
       } else if (isDraggingDividerH) {
         document.body.style.cursor = 'row-resize';
       }
@@ -1014,28 +1080,28 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
           </div>
         );
         
-      case 'tile':
+      case 'tile-2x2':
         return (
           <div className="h-full flex flex-col relative">
             <div className="flex" style={{ height: `${splitRatioH * 100}%` }}>
-              <div 
+              <div
                 className="border-r border-b border-gray-700"
                 style={{ width: `${splitRatio * 100}%` }}
               >
                 {renderPane(panes[0], activePaneId === panes[0].id)}
               </div>
-              <div 
+              <div
                 className="border-b border-gray-700"
                 style={{ width: `${(1 - splitRatio) * 100}%` }}
               >
                 {panes[1] && renderPane(panes[1], activePaneId === panes[1]?.id)}
               </div>
             </div>
-            
+
             {/* Horizontal divider for tile mode */}
             <div
               className="absolute left-0 right-0 h-2 hover:h-3 bg-gray-600 hover:bg-blue-500 cursor-row-resize z-20 transition-all"
-              style={{ 
+              style={{
                 top: `calc(${splitRatioH * 100}% - 4px)`,
                 transition: isDraggingDividerH ? 'none' : 'all 0.2s'
               }}
@@ -1050,11 +1116,11 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
                 </div>
               </div>
             </div>
-            
+
             {/* Vertical divider for tile mode */}
             <div
               className="absolute top-0 bottom-0 w-2 hover:w-3 bg-gray-600 hover:bg-blue-500 cursor-col-resize z-20 transition-all"
-              style={{ 
+              style={{
                 left: `calc(${splitRatio * 100}% - 4px)`,
                 transition: isDraggingDivider ? 'none' : 'all 0.2s'
               }}
@@ -1069,18 +1135,164 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
                 </div>
               </div>
             </div>
-            
+
             <div className="flex" style={{ height: `${(1 - splitRatioH) * 100}%` }}>
-              <div 
+              <div
                 className="border-r border-gray-700"
                 style={{ width: `${splitRatio * 100}%` }}
               >
                 {panes[2] && renderPane(panes[2], activePaneId === panes[2]?.id)}
               </div>
-              <div 
+              <div
                 style={{ width: `${(1 - splitRatio) * 100}%` }}
               >
                 {panes[3] && renderPane(panes[3], activePaneId === panes[3]?.id)}
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'tile-3x2':
+        return (
+          <div className="h-full flex flex-col relative">
+            {/* Top row: 3 panes */}
+            <div className="flex" style={{ height: `${splitRatioH * 100}%` }}>
+              <div
+                className="border-r border-b border-gray-700"
+                style={{ width: '33.333%' }}
+              >
+                {renderPane(panes[0], activePaneId === panes[0]?.id)}
+              </div>
+              <div
+                className="border-r border-b border-gray-700"
+                style={{ width: '33.333%' }}
+              >
+                {panes[1] && renderPane(panes[1], activePaneId === panes[1]?.id)}
+              </div>
+              <div
+                className="border-b border-gray-700"
+                style={{ width: '33.333%' }}
+              >
+                {panes[2] && renderPane(panes[2], activePaneId === panes[2]?.id)}
+              </div>
+            </div>
+
+            {/* Horizontal divider */}
+            <div
+              className="absolute left-0 right-0 h-2 hover:h-3 bg-gray-600 hover:bg-blue-500 cursor-row-resize z-20 transition-all"
+              style={{
+                top: `calc(${splitRatioH * 100}% - 4px)`,
+                transition: isDraggingDividerH ? 'none' : 'all 0.2s'
+              }}
+              onMouseDown={handleDividerHMouseDown}
+              onTouchStart={handleDividerHTouchStart}
+              title="Drag to resize panes"
+            >
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="flex flex-col gap-0.5">
+                  <div className="h-0.5 w-6 bg-gray-400"></div>
+                  <div className="h-0.5 w-6 bg-gray-400"></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom row: 3 panes */}
+            <div className="flex" style={{ height: `${(1 - splitRatioH) * 100}%` }}>
+              <div
+                className="border-r border-gray-700"
+                style={{ width: '33.333%' }}
+              >
+                {panes[3] && renderPane(panes[3], activePaneId === panes[3]?.id)}
+              </div>
+              <div
+                className="border-r border-gray-700"
+                style={{ width: '33.333%' }}
+              >
+                {panes[4] && renderPane(panes[4], activePaneId === panes[4]?.id)}
+              </div>
+              <div
+                style={{ width: '33.333%' }}
+              >
+                {panes[5] && renderPane(panes[5], activePaneId === panes[5]?.id)}
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'tile-4x2':
+        return (
+          <div className="h-full flex flex-col relative">
+            {/* Top row: 4 panes */}
+            <div className="flex" style={{ height: `${splitRatioH * 100}%` }}>
+              <div
+                className="border-r border-b border-gray-700"
+                style={{ width: '25%' }}
+              >
+                {renderPane(panes[0], activePaneId === panes[0]?.id)}
+              </div>
+              <div
+                className="border-r border-b border-gray-700"
+                style={{ width: '25%' }}
+              >
+                {panes[1] && renderPane(panes[1], activePaneId === panes[1]?.id)}
+              </div>
+              <div
+                className="border-r border-b border-gray-700"
+                style={{ width: '25%' }}
+              >
+                {panes[2] && renderPane(panes[2], activePaneId === panes[2]?.id)}
+              </div>
+              <div
+                className="border-b border-gray-700"
+                style={{ width: '25%' }}
+              >
+                {panes[3] && renderPane(panes[3], activePaneId === panes[3]?.id)}
+              </div>
+            </div>
+
+            {/* Horizontal divider */}
+            <div
+              className="absolute left-0 right-0 h-2 hover:h-3 bg-gray-600 hover:bg-blue-500 cursor-row-resize z-20 transition-all"
+              style={{
+                top: `calc(${splitRatioH * 100}% - 4px)`,
+                transition: isDraggingDividerH ? 'none' : 'all 0.2s'
+              }}
+              onMouseDown={handleDividerHMouseDown}
+              onTouchStart={handleDividerHTouchStart}
+              title="Drag to resize panes"
+            >
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="flex flex-col gap-0.5">
+                  <div className="h-0.5 w-6 bg-gray-400"></div>
+                  <div className="h-0.5 w-6 bg-gray-400"></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom row: 4 panes */}
+            <div className="flex" style={{ height: `${(1 - splitRatioH) * 100}%` }}>
+              <div
+                className="border-r border-gray-700"
+                style={{ width: '25%' }}
+              >
+                {panes[4] && renderPane(panes[4], activePaneId === panes[4]?.id)}
+              </div>
+              <div
+                className="border-r border-gray-700"
+                style={{ width: '25%' }}
+              >
+                {panes[5] && renderPane(panes[5], activePaneId === panes[5]?.id)}
+              </div>
+              <div
+                className="border-r border-gray-700"
+                style={{ width: '25%' }}
+              >
+                {panes[6] && renderPane(panes[6], activePaneId === panes[6]?.id)}
+              </div>
+              <div
+                style={{ width: '25%' }}
+              >
+                {panes[7] && renderPane(panes[7], activePaneId === panes[7]?.id)}
               </div>
             </div>
           </div>
