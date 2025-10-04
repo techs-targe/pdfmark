@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ToolType,
   COLOR_PRESETS,
@@ -60,6 +60,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+
+  // Prevent unused variable warnings (reserved for future use)
+  void onSave;
+  void onLoad;
 
   useEffect(() => {
     const checkMobile = () => {

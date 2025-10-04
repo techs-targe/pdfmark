@@ -368,6 +368,7 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
     const dy = touches[0].clientY - touches[1].clientY;
     return Math.sqrt(dx * dx + dy * dy);
   };
+  void getTouchDistance; // Prevent TypeScript unused variable error
 
   // Get center point between touches
   const getTouchCenter = (touches: React.TouchList) => {
@@ -456,7 +457,7 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
       if (lastFiveFingerTap && now - lastFiveFingerTap.time < 300) {
         // 5-finger double tap for fit-to-width
         e.preventDefault();
-        onZoomChange('fit-width');
+        onZoomChange?.('fit-width');
         setLastFiveFingerTap(null);
       } else {
         setLastFiveFingerTap({ time: now });

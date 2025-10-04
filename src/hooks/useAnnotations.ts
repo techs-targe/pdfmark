@@ -28,12 +28,14 @@ export function useAnnotations(
     if (pdfFileName) {
       const data = storage.load();
       if (data && data.pdfInfo.fileName === pdfFileName) {
-        setAnnotations(data.annotations);
-        setHistory([data.annotations]);
+        // Extract annotations for this specific file
+        const fileAnnotations = data.annotations[pdfFileName] || {};
+        setAnnotations(fileAnnotations);
+        setHistory([fileAnnotations]);
         setHistoryIndex(0);
       }
     }
-  }, [pdfFileName]);
+  }, [pdfFileName, storage]);
 
   // Auto-save annotations
   useEffect(() => {
@@ -42,11 +44,14 @@ export function useAnnotations(
       if (data) {
         storage.autoSave({
           ...data,
-          annotations,
+          annotations: {
+            ...data.annotations,
+            [pdfFileName]: annotations
+          },
         });
       }
     }
-  }, [annotations, autoSave, pdfFileName]);
+  }, [annotations, autoSave, pdfFileName, storage]);
 
   const addToHistory = useCallback((newAnnotations: Record<string, Annotation[]>) => {
     setHistory((prev) => {
