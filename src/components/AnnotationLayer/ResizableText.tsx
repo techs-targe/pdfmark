@@ -42,7 +42,7 @@ export const ResizableText: React.FC<ResizableTextProps> = ({
   const boxHeight = annotation.height ? annotation.height * canvasHeight : annotation.fontSize * 1.5;
 
   // Calculate font size to fit the box
-  const fontSize = useMemo(() => {
+  const _fontSize = useMemo(() => {
     if (annotation.width && annotation.height) {
       // Calculate font size based on box dimensions
       // The font should scale with the box size

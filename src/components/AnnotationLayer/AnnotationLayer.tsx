@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback, useState, useMemo } from 'react';
+import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { Annotation, ToolType, TextAnnotation } from '../../types';
 import { PenTool } from '../../tools/PenTool';
 import { EraserTool } from '../../tools/EraserTool';
@@ -6,7 +6,7 @@ import { LineTool } from '../../tools/LineTool';
 import { TextTool } from '../../tools/TextTool';
 import { TextEditDialog } from './TextEditDialog';
 import { ResizableText } from './ResizableText';
-import { normalizedToScreen, normalizedPointsToScreen, screenToNormalized } from '../../utils/helpers';
+import { normalizedToScreen, normalizedPointsToScreen } from '../../utils/helpers';
 import { isPenEvent, isPenActive, setToolActive } from '../../utils/penDetection';
 
 interface AnnotationLayerProps {
@@ -576,9 +576,9 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
         case 'line':
           // Line tool uses two-click approach
           if (!tools.line.isActive()) {
-            tools.line.startLine(event.nativeEvent);
+            tools.line.startDrawing(event.nativeEvent);
           } else {
-            tools.line.endLine(event.nativeEvent, pageNumber);
+            tools.line.stopDrawing(event.nativeEvent, pageNumber);
           }
           break;
       }

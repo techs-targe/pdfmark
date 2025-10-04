@@ -7,7 +7,7 @@ import { RecoveryDialog } from './components/AutoSave/RecoveryDialog';
 import { StatusBar } from './components/StatusBar/StatusBar';
 import { useGlobalAnnotations } from './hooks/useGlobalAnnotations';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
-import { isPenActive, isAnyDrawingToolActive, getActiveToolType } from './utils/penDetection';
+import { isAnyDrawingToolActive, getActiveToolType } from './utils/penDetection';
 import { StorageManager } from './utils/storage';
 import { autoSaveManager } from './utils/autoSaveManager';
 import { isPDFFile, formatFileSize, generateId } from './utils/helpers';
@@ -321,7 +321,9 @@ function App() {
             fileHash: currentFileHash,
             totalPages: 0,
           },
-          annotations: autoSaveEntry.annotations,
+          annotations: {
+            [pdfFile.name]: autoSaveEntry.annotations
+          },
           tabs: autoSaveEntry.tabs,
           viewSettings: {
             splitMode: 'none' as const,
@@ -342,7 +344,7 @@ function App() {
       console.log(`✅ Marked ${fileName} as saved after auto-save restoration`);
     } catch (error) {
       console.error('❌ Failed to restore auto-save:', error);
-      console.error('❌ Error details:', error.stack || error);
+      console.error('❌ Error details:', (error as Error).stack || error);
       alert('Failed to restore auto-save. Please try again.');
     }
   }, [pdfFile, setAllAnnotations, currentFileHash, storage, markAsSaved, fileAnnotations]);
@@ -521,15 +523,7 @@ function App() {
   // const handleTabRemove = useCallback((_tabId: string) => {}, []);
   // const handleTabRename = useCallback((_tabId: string, _newName: string) => {}, []);
   // const handleTabChange = useCallback((_tabId: string) => {}, []);
-
-  // Handle page changes
-  const handlePageChange = useCallback((page: number) => {
-    setTabs(tabs.map(t => 
-      t.id === activeTabId 
-        ? { ...t, currentPage: page }
-        : t
-    ));
-  }, [tabs, activeTabId]);
+  // const handlePageChange = useCallback((page: number) => { ... }, [tabs, activeTabId]); // Now handled by WindowManager
 
   const handleZoomChange = useCallback((zoom: number | 'fit-width' | 'fit-page') => {
     setTabs(tabs.map(t => 
