@@ -49,6 +49,7 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
   const initialTouchDistanceRef = useRef<number | null>(null);
   const lastTouchCountRef = useRef<number>(0);
   const previousToolRef = useRef<ToolType | null>(null);
+  const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
   const [tools, setTools] = useState<{
     pen: PenTool | null;
     eraser: EraserTool | null;
@@ -158,6 +159,23 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
         forceUpdate(prev => prev + 1);
       }
     }
+  }, [currentTool, tools, forceUpdate]);
+
+  // Handle Escape key to reset line tool
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (currentTool === 'line' && tools.line && tools.line.isActive()) {
+          tools.line.cancel();
+          forceUpdate(prev => prev + 1);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [currentTool, tools, forceUpdate]);
 
   // Update tool settings
@@ -382,7 +400,7 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
       }
     }
 
-    // Draw current line if exists
+    // Draw current line if exists (with dashed preview)
     if (tools.line && tools.line.isActive()) {
       const currentLine = tools.line.getCurrentLine();
       if (currentLine) {
@@ -390,14 +408,68 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
         ctx.strokeStyle = currentLine.color;
         ctx.lineWidth = currentLine.lineWidth;
         ctx.lineCap = 'round';
+
+        // Draw dashed line for preview
+        ctx.setLineDash([5, 5]);
+
         ctx.beginPath();
         ctx.moveTo(currentLine.start.x, currentLine.start.y);
         ctx.lineTo(currentLine.end.x, currentLine.end.y);
         ctx.stroke();
+
+        // Draw start point indicator (circle with "1")
+        ctx.setLineDash([]);
+        ctx.fillStyle = currentLine.color;
+        ctx.beginPath();
+        ctx.arc(currentLine.start.x, currentLine.start.y, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('1', currentLine.start.x, currentLine.start.y);
+
+        // Draw end point indicator (circle with "2")
+        ctx.fillStyle = currentLine.color;
+        ctx.beginPath();
+        ctx.arc(currentLine.end.x, currentLine.end.y, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText('2', currentLine.end.x, currentLine.end.y);
+
         ctx.restore();
       }
     }
-  }, [annotations, canvasWidth, canvasHeight, tools.pen, tools.line, currentTool, pageNumber, renderCounter]);
+
+    // Draw cursor indicator for line tool
+    if (currentTool === 'line' && cursorPosition && tools.line) {
+      const state = tools.line.getState();
+      const label = state === 'waiting-first' ? '1' : '2';
+      const cursorSize = 24;
+
+      ctx.save();
+
+      // Draw circle background
+      ctx.fillStyle = state === 'waiting-first' ? '#3b82f6' : '#10b981';
+      ctx.beginPath();
+      ctx.arc(cursorPosition.x, cursorPosition.y, cursorSize / 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Draw border
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Draw number
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 14px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, cursorPosition.x, cursorPosition.y);
+
+      ctx.restore();
+    }
+  }, [annotations, canvasWidth, canvasHeight, tools.pen, tools.line, currentTool, pageNumber, renderCounter, cursorPosition]);
 
   // Check if click is on a text annotation
   const getTextAnnotationAtPoint = useCallback((x: number, y: number) => {
@@ -626,6 +698,23 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
     (event: React.MouseEvent | React.TouchEvent | React.PointerEvent) => {
       if (isDisabled) return;
 
+      // Update cursor position for line tool
+      if (currentTool === 'line') {
+        const canvas = canvasRef.current;
+        if (canvas) {
+          const rect = canvas.getBoundingClientRect();
+          const x = 'touches' in event.nativeEvent
+            ? event.nativeEvent.touches[0].clientX - rect.left
+            : event.nativeEvent.clientX - rect.left;
+          const y = 'touches' in event.nativeEvent
+            ? event.nativeEvent.touches[0].clientY - rect.top
+            : event.nativeEvent.clientY - rect.top;
+          setCursorPosition({ x, y });
+        }
+      } else {
+        setCursorPosition(null);
+      }
+
       // Check if this is a pen/stylus input using our robust detection
       const isPenInput = isPenEvent(event.nativeEvent || event);
 
@@ -784,6 +873,9 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
   );
 
   const handlePointerLeave = useCallback(() => {
+    // Clear cursor position when leaving canvas
+    setCursorPosition(null);
+
     if (!tools.pen || !tools.eraser || !tools.line) return;
 
     // CRITICAL FIX: Don't cancel pen drawing on pointer leave for touch pens
@@ -810,10 +902,13 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
 
   // Define cursor style based on tool
   const getCursorStyle = () => {
+    // Hide cursor for line tool (we draw custom indicator)
+    if (currentTool === 'line') {
+      return 'none';
+    }
     switch (currentTool) {
       case 'eraser':
       case 'pen':
-      case 'line':
         return 'crosshair';
       case 'text':
         return 'text';
@@ -823,7 +918,7 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
         return 'default';
     }
   };
-  
+
   const cursorStyle = getCursorStyle();
 
   // Get the editing annotation

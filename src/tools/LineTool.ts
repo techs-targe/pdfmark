@@ -148,6 +148,10 @@ export class LineTool {
     return this.hasStartPoint || this.isDrawing;
   }
 
+  getState(): 'waiting-first' | 'waiting-second' {
+    return this.hasStartPoint ? 'waiting-second' : 'waiting-first';
+  }
+
   updateCanvasSize(_width: number, _height: number): void {
     // No longer needed
   }
