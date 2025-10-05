@@ -51,6 +51,9 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
   const previousToolRef = useRef<ToolType | null>(null);
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
 
+  // Pending annotations that haven't been added to parent state yet (prevents race condition)
+  const [pendingAnnotations, setPendingAnnotations] = useState<Annotation[]>([]);
+
   // Use refs to keep stable tool instances
   const toolsRef = useRef<{
     pen: PenTool | null;
@@ -67,6 +70,20 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
   // Keep a state version for triggering re-renders when needed
   const [toolsInitialized, setToolsInitialized] = useState(false);
 
+  // Wrapper for onAnnotationAdd that handles pending state
+  const handleAnnotationAdd = useCallback((annotation: Annotation) => {
+    // Add to pending immediately (synchronous)
+    setPendingAnnotations(prev => [...prev, annotation]);
+
+    // Notify parent (asynchronous state update)
+    onAnnotationAdd(annotation);
+
+    // Remove from pending after parent state should have updated
+    setTimeout(() => {
+      setPendingAnnotations(prev => prev.filter(a => a.id !== annotation.id));
+    }, 50);
+  }, [onAnnotationAdd]);
+
   // Initialize tools once and keep them stable
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -79,10 +96,10 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
     if (!ctx) return;
 
     toolsRef.current = {
-      pen: new PenTool(canvas, ctx, onAnnotationAdd),
+      pen: new PenTool(canvas, ctx, handleAnnotationAdd),
       eraser: new EraserTool(canvas, ctx, (ids) => ids.forEach(onAnnotationRemove)),
-      line: new LineTool(canvas, ctx, onAnnotationAdd),
-      text: new TextTool(canvas, ctx, onAnnotationAdd),
+      line: new LineTool(canvas, ctx, handleAnnotationAdd),
+      text: new TextTool(canvas, ctx, handleAnnotationAdd),
     };
 
     setToolsInitialized(true);
@@ -132,7 +149,7 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
       canvas.removeEventListener('gesturechange', handleGestureChange);
       canvas.removeEventListener('gestureend', handleGestureEnd);
     };
-  }, [toolsInitialized]);
+  }, [toolsInitialized, handleAnnotationAdd]);
 
   // Cancel previous tool when switching tools
   useEffect(() => {
@@ -205,10 +222,12 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Draw saved annotations (only those for this page)
+    // Draw saved annotations (only those for this page) + pending annotations
     const pageAnnotations = annotations.filter(a => a.pageNumber === pageNumber);
-    
-    pageAnnotations.forEach((annotation) => {
+    const pagePendingAnnotations = pendingAnnotations.filter(a => a.pageNumber === pageNumber);
+    const allAnnotations = [...pageAnnotations, ...pagePendingAnnotations];
+
+    allAnnotations.forEach((annotation) => {
       ctx.save();
 
       switch (annotation.type) {
@@ -462,7 +481,7 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
 
       ctx.restore();
     }
-  }, [annotations, canvasWidth, canvasHeight, toolsInitialized, currentTool, pageNumber, renderCounter, cursorPosition]);
+  }, [annotations, pendingAnnotations, canvasWidth, canvasHeight, toolsInitialized, currentTool, pageNumber, renderCounter, cursorPosition]);
 
   // Check if click is on a text annotation
   const getTextAnnotationAtPoint = useCallback((x: number, y: number) => {
@@ -796,7 +815,8 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
       switch (currentTool) {
         case 'pen':
           toolsRef.current.pen.stopDrawing(pageNumber);
-          // Don't forceUpdate - let parent's state update trigger re-render naturally
+          // Force update to show pending annotation immediately
+          forceUpdate(prev => prev + 1);
           break;
         case 'eraser':
           toolsRef.current.eraser.stopErasing();
