@@ -51,6 +51,9 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
   const previousToolRef = useRef<ToolType | null>(null);
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
 
+  // Track active pointer IDs to detect multi-finger gestures (3-4 fingers)
+  const activePointerIds = useRef<Set<number>>(new Set());
+
   // Pending annotations that haven't been added to parent state yet (prevents race condition)
   const [pendingAnnotations, setPendingAnnotations] = useState<Annotation[]>([]);
 
@@ -608,6 +611,40 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
       if (isDisabled) return;
       if (!toolsRef.current.pen || !toolsRef.current.eraser || !toolsRef.current.line || !toolsRef.current.text) return;
 
+      // Check if this is a pen/stylus input first
+      const isPenInput = isPenEvent(event.nativeEvent || event);
+
+      // Check if this is a mouse input (only 1 pointer possible)
+      const isMouseInput = 'pointerType' in event && event.pointerType === 'mouse';
+
+      // Track pointer ID for multi-finger gesture detection (but NOT for pen or mouse input)
+      if ('pointerId' in event && !isPenInput && !isMouseInput) {
+        activePointerIds.current.add(event.pointerId);
+        const allPointerIds = Array.from(activePointerIds.current).join(', ');
+        console.log(`👆 Pointer down: ${event.pointerId}, total active: ${activePointerIds.current.size}, IDs: [${allPointerIds}], pointerType: ${event.pointerType}`);
+
+        // CRITICAL: Block drawing if 2+ fingers are active (including 3-4 finger gestures)
+        if (activePointerIds.current.size >= 2) {
+          console.log(`🚫 Multi-finger gesture detected (${activePointerIds.current.size} fingers), blocking drawing. IDs: [${allPointerIds}]`);
+          // Cancel any current drawing
+          if (isDrawingRef.current) {
+            console.log('🚫 Canceling active drawing due to multi-finger gesture');
+            isDrawingRef.current = false;
+            if (toolsRef.current.pen && toolsRef.current.pen.isActive()) {
+              toolsRef.current.pen.cancel();
+            }
+            if (toolsRef.current.eraser && toolsRef.current.eraser.isActive()) {
+              toolsRef.current.eraser.cancel();
+              setToolActive('eraser', false);
+            }
+            if (toolsRef.current.line && toolsRef.current.line.isActive()) {
+              toolsRef.current.line.cancel();
+            }
+          }
+          return; // Don't process this event for drawing
+        }
+      }
+
       // Handle middle mouse button click for tool toggle
       if ('button' in event && event.button === 1 && onToolChange) {
         event.preventDefault();
@@ -622,28 +659,6 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
           onToolChange('select');
         }
         return;
-      }
-
-      // Check if this is a pen/stylus input using our robust detection
-      const isPenInput = isPenEvent(event.nativeEvent || event);
-
-      // For pen input, COMPLETELY BYPASS multi-finger gesture detection
-      if (!isPenInput) {
-        // Only check for multi-finger gestures for non-pen input
-        if (isMultiFingerGesture(event)) {
-          // Cancel any current drawing
-          if (isDrawingRef.current) {
-            isDrawingRef.current = false;
-            if (toolsRef.current.pen && toolsRef.current.pen.isActive()) {
-              toolsRef.current.pen.cancel();
-            }
-            if (toolsRef.current.eraser && toolsRef.current.eraser.isActive()) {
-              toolsRef.current.eraser.cancel();
-              setToolActive('eraser', false); // Stop tracking eraser activity
-            }
-          }
-          return;
-        }
       }
 
       const canvas = canvasRef.current;
@@ -670,6 +685,14 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
         } else {
           setSelectedAnnotation(null);
         }
+        return;
+      }
+
+      // CRITICAL: Final check before starting drawing - ensure only 1 finger is active
+      // This prevents race conditions where a second finger is added between the initial check and drawing start
+      // Exception: Allow pen/stylus and mouse input (which don't use activePointerIds tracking)
+      if (!isPenInput && !isMouseInput && activePointerIds.current.size !== 1) {
+        console.log(`🚫 Refusing to start drawing: ${activePointerIds.current.size} fingers detected (touch input only)`);
         return;
       }
 
@@ -711,13 +734,37 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
           break;
       }
     },
-    [currentTool, toolsInitialized, pageNumber, getTextAnnotationAtPoint, isDisabled, isMultiFingerGesture, onToolChange]
+    [currentTool, toolsInitialized, pageNumber, getTextAnnotationAtPoint, isDisabled, onToolChange]
   );
 
   const handlePointerMove = useCallback(
     (event: React.MouseEvent | React.TouchEvent | React.PointerEvent) => {
       if (isDisabled) return;
       if (!toolsInitialized) return;
+
+      // CRITICAL: Block drawing during multi-finger gestures
+      if (activePointerIds.current.size >= 2) {
+        // Cancel any active drawing
+        if (isDrawingRef.current) {
+          const allPointerIds = Array.from(activePointerIds.current).join(', ');
+          console.log(`🚫 MOVE: Canceling drawing - ${activePointerIds.current.size} fingers active. IDs: [${allPointerIds}]`);
+          isDrawingRef.current = false;
+          if (toolsRef.current.pen && toolsRef.current.pen.isActive()) {
+            toolsRef.current.pen.cancel();
+            console.log('🚫 MOVE: Canceled pen drawing');
+          }
+          if (toolsRef.current.eraser && toolsRef.current.eraser.isActive()) {
+            toolsRef.current.eraser.cancel();
+            setToolActive('eraser', false);
+            console.log('🚫 MOVE: Canceled eraser');
+          }
+          if (toolsRef.current.line && toolsRef.current.line.isActive()) {
+            toolsRef.current.line.cancel();
+            console.log('🚫 MOVE: Canceled line drawing');
+          }
+        }
+        return; // Don't process move events during multi-finger gestures
+      }
 
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -735,30 +782,6 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
         setCursorPosition({ x, y });
       } else {
         setCursorPosition(null);
-      }
-
-      // Check if this is a pen/stylus input
-      const isPenInput = isPenEvent(event.nativeEvent || event);
-
-      // For pen input, COMPLETELY BYPASS multi-finger gesture detection
-      if (!isPenInput) {
-        // Only check for multi-finger gestures for non-pen input
-        const isMultiFinger = isMultiFingerGesture(event);
-        if (isMultiFinger) {
-          // Cancel any current drawing
-          if (isDrawingRef.current) {
-            isDrawingRef.current = false;
-            if (toolsRef.current.pen && toolsRef.current.pen.isActive()) {
-              toolsRef.current.pen.cancel();
-            }
-            if (toolsRef.current.eraser && toolsRef.current.eraser.isActive()) {
-              toolsRef.current.eraser.cancel();
-              setToolActive('eraser', false);
-            }
-            forceUpdate(prev => prev + 1);
-          }
-          return;
-        }
       }
 
       // For line tool, ALWAYS update preview when active
@@ -792,31 +815,17 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
           break;
       }
     },
-    [currentTool, toolsInitialized, annotations, onAnnotationRemove, isDisabled, isMultiFingerGesture]
+    [currentTool, toolsInitialized, annotations, onAnnotationRemove, isDisabled]
   );
 
   const handlePointerUp = useCallback(
     (event: React.MouseEvent | React.TouchEvent | React.PointerEvent) => {
-      // Check if this is a pen/stylus input using our robust detection
-      const isPenInput = isPenEvent(event.nativeEvent || event);
-
-      // For pen input, COMPLETELY BYPASS multi-finger gesture detection
-      if (!isPenInput) {
-        // Only check for multi-finger gestures for non-pen input
-        if (isMultiFingerGesture(event)) {
-          // Cancel any current drawing immediately
-          if (isDrawingRef.current) {
-            isDrawingRef.current = false;
-            if (toolsRef.current.pen && toolsRef.current.pen.isActive()) {
-              toolsRef.current.pen.cancel();
-            }
-            if (toolsRef.current.eraser && toolsRef.current.eraser.isActive()) {
-              toolsRef.current.eraser.cancel();
-              setToolActive('eraser', false); // Stop tracking eraser activity
-            }
-            forceUpdate(prev => prev + 1); // Force re-render to clear drawing
-          }
-          return;
+      // Remove pointer ID from active set (only for touch input)
+      if ('pointerId' in event) {
+        const wasDeleted = activePointerIds.current.delete(event.pointerId);
+        if (wasDeleted) {
+          const allPointerIds = Array.from(activePointerIds.current).join(', ');
+          console.log(`👆 Pointer up: ${event.pointerId}, remaining active: ${activePointerIds.current.size}, IDs: [${allPointerIds}]`);
         }
       }
 
@@ -842,7 +851,7 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
           break;
       }
     },
-    [currentTool, toolsInitialized, pageNumber, isMultiFingerGesture]
+    [currentTool, toolsInitialized, pageNumber]
   );
 
   // Handle double-click for text editing
@@ -867,6 +876,12 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
   );
 
   const handlePointerLeave = useCallback(() => {
+    // Clear all active pointer IDs when leaving canvas
+    if (activePointerIds.current.size > 0) {
+      console.log(`👆 Pointer leave: clearing all ${activePointerIds.current.size} active pointers`);
+      activePointerIds.current.clear();
+    }
+
     // Clear cursor position when leaving canvas
     setCursorPosition(null);
 
