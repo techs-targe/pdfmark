@@ -674,18 +674,21 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
             });
           }}
           onFileUpload={(file) => {
-            console.log(`🪟 WindowManager: File uploaded: ${file.name}`);
+            console.log(`🪟 WindowManager: File uploaded: ${file.name}, layout: ${layout}`);
 
-            // CRITICAL FIX: Notify parent App.tsx about file upload
-            if (onFileUpload) {
-              console.log(`🪟 WindowManager: Notifying parent App.tsx about file: ${file.name}`);
+            // CRITICAL FIX: Only notify parent in single window mode
+            // In tile/multi-window mode, each pane manages its own files independently
+            if (layout === 'single' && onFileUpload) {
+              console.log(`🪟 WindowManager: Single mode - Notifying parent App.tsx about file: ${file.name}`);
               onFileUpload(file);
+            } else {
+              console.log(`🪟 WindowManager: Multi-pane mode - NOT notifying parent, managing file locally in pane ${pane.id}`);
             }
 
             const timestamp = Date.now();
 
             setPanes(prevPanes => {
-              // Create a new tab for all panes
+              // Create tab data
               const newTabBase = {
                 name: file.name.replace('.pdf', '').slice(0, 20),
                 file: file,
@@ -695,58 +698,40 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
                 scrollPosition: { x: 0, y: 0 },
                 lastUpdated: timestamp
               };
-              
+
+              // Add new tab to ALL panes
               const updatedPanes = prevPanes.map(p => {
-                const currentActiveTab = p.tabs.find(t => t.id === p.activeTabId);
-                
-                // If current tab has no file in the clicked pane, update it
-                if (p.id === pane.id && currentActiveTab && !currentActiveTab.file) {
-                  return {
-                    ...p,
-                    tabs: p.tabs.map(t => {
-                      if (t.id === p.activeTabId) {
-                        return {
-                          ...t,
-                          ...newTabBase,
-                          id: t.id, // Keep the same ID
-                        };
-                      }
-                      return t;
-                    })
-                  };
-                }
-                
                 // Check if we already have this file open in this pane
                 const existingTab = p.tabs.find(t => t.fileName === file.name);
                 if (existingTab) {
                   // Switch to existing tab
+                  console.log(`🪟 Pane ${p.id}: File already open in tab ${existingTab.id}, switching to it`);
                   return {
                     ...p,
                     activeTabId: existingTab.id
                   };
                 }
-                
-                // Otherwise create new tab if not at limit
+
+                // Check tab limit
                 if (p.tabs.length >= 10) {
-                  if (p.id === pane.id) {
-                    alert('Maximum 10 tabs per window reached');
-                  }
+                  console.log(`🪟 Pane ${p.id}: Maximum 10 tabs reached, skipping`);
                   return p;
                 }
-                
-                // Create unique tab ID for each pane
+
+                // Create unique tab ID for this pane
                 const newTab: Tab = {
                   ...newTabBase,
                   id: `${generateId()}_${p.id}`,
                 };
-                
+
+                console.log(`🪟 Pane ${p.id}: Creating new tab ${newTab.id} for file ${file.name}`);
                 return {
                   ...p,
                   tabs: [...p.tabs, newTab],
-                  activeTabId: p.id === pane.id ? newTab.id : p.activeTabId,
+                  activeTabId: newTab.id,
                 };
               });
-              
+
               return updatedPanes;
             });
           }}

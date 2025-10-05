@@ -107,6 +107,25 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   {tool.icon}
                 </button>
               ))}
+              {/* Undo/Redo buttons */}
+              <div className="ml-2 flex items-center gap-1 border-l border-gray-600 pl-2">
+                <button
+                  onClick={onUndo}
+                  disabled={!canUndo}
+                  className="p-1.5 rounded text-xs text-gray-300 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Undo (Ctrl+Z)"
+                >
+                  ↩️
+                </button>
+                <button
+                  onClick={onRedo}
+                  disabled={!canRedo}
+                  className="p-1.5 rounded text-xs text-gray-300 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Redo (Ctrl+Y)"
+                >
+                  ↪️
+                </button>
+              </div>
             </div>
             <div className="flex items-center gap-1">
               <button
