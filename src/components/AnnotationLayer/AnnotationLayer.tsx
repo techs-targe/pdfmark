@@ -79,12 +79,9 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
   // Wrapper for onAnnotationAdd that handles pending state
   // CRITICAL: No dependencies to avoid recreating and causing tool re-initialization
   const handleAnnotationAdd = useCallback((annotation: Annotation) => {
-    console.log('🔴 handleAnnotationAdd called, type:', annotation.type, 'id:', annotation.id);
-
     // Add to pending immediately (synchronous)
     setPendingAnnotations(prev => {
       const newPending = [...prev, annotation];
-      console.log('🔴 pendingAnnotations updated, count:', newPending.length);
       return newPending;
     });
 
@@ -94,7 +91,6 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
     // Remove from pending after parent state should have updated
     setTimeout(() => {
       setPendingAnnotations(prev => prev.filter(a => a.id !== annotation.id));
-      console.log('🔴 Removed from pending after 50ms, id:', annotation.id);
     }, 50);
   }, []); // Empty dependency array - stable callback
 
@@ -241,8 +237,6 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
     const pagePendingAnnotations = pendingAnnotations.filter(a => a.pageNumber === pageNumber);
     const allAnnotations = [...pageAnnotations, ...pagePendingAnnotations];
 
-    console.log('🟢 RENDER - pageAnnotations:', pageAnnotations.length, 'pendingAnnotations:', pagePendingAnnotations.length, 'total:', allAnnotations.length);
-
     allAnnotations.forEach((annotation) => {
       ctx.save();
 
@@ -284,7 +278,7 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
             canvas.width,
             canvas.height
           );
-          
+
           ctx.strokeStyle = annotation.color;
           ctx.lineWidth = annotation.width;
           ctx.lineCap = 'round';
@@ -697,12 +691,16 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
           // Update cursor position on click
           setCursorPosition({ x, y });
 
+          console.log('🔵 LINE - handlePointerDown, isActive:', toolsRef.current.line.isActive(), 'coords:', { x, y });
+
           if (!toolsRef.current.line.isActive()) {
             // First click - start line
+            console.log('🔵 LINE - First click, calling startDrawing');
             toolsRef.current.line.startDrawing(event.nativeEvent);
             forceUpdate(prev => prev + 1);
           } else {
             // Second click - complete line
+            console.log('🔵 LINE - Second click, calling stopDrawing, pageNumber:', pageNumber);
             toolsRef.current.line.stopDrawing(event.nativeEvent, pageNumber);
             forceUpdate(prev => prev + 1);
           }
@@ -830,12 +828,9 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
 
       switch (currentTool) {
         case 'pen':
-          console.log('🔵 PEN - Calling stopDrawing, pageNumber:', pageNumber);
           toolsRef.current.pen.stopDrawing(pageNumber);
-          console.log('🔵 PEN - stopDrawing completed, calling forceUpdate');
           // Force update to show pending annotation immediately
           forceUpdate(prev => prev + 1);
-          console.log('🔵 PEN - forceUpdate called');
           break;
         case 'eraser':
           toolsRef.current.eraser.stopErasing();
@@ -939,13 +934,10 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
           zIndex: 20,
           touchAction: 'none' // Prevent default touch behaviors for precise gesture detection
         }}
-        onMouseDown={handlePointerDown}
-        onMouseMove={handlePointerMove}
-        onMouseUp={handlePointerUp}
-        onMouseLeave={handlePointerLeave}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerLeave}
         onTouchStart={handlePointerDown}
         onTouchMove={handlePointerMove}
         onTouchEnd={handlePointerUp}

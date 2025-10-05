@@ -32,15 +32,14 @@ export class LineTool {
   startDrawing(event: MouseEvent | TouchEvent): void {
     const point = getRelativePosition(event, this.canvas);
 
+    // CRITICAL: Only handle first click here
+    // Second click is handled by AnnotationLayer calling stopDrawing() directly
     if (!this.hasStartPoint) {
-      // First click - set start point
       this.hasStartPoint = true;
       this.isDrawing = true;
       this.startPoint = point;
       this.currentEndPoint = point;
-    } else {
-      // Second click - complete the line
-      this.stopDrawing(event, 1); // pageNumber will be passed properly from AnnotationLayer
+      console.log('🟦 LINE TOOL - First click set, startPoint:', this.startPoint);
     }
   }
 
@@ -75,10 +74,12 @@ export class LineTool {
 
   stopDrawing(event: MouseEvent | TouchEvent, pageNumber: number): void {
     if (!this.hasStartPoint || !this.startPoint) {
+      console.warn('🟦 LINE TOOL - stopDrawing called but no startPoint');
       return;
     }
 
     const rawEndPoint = getRelativePosition(event, this.canvas);
+    console.log('🟦 LINE TOOL - stopDrawing, startPoint:', this.startPoint, 'rawEndPoint:', rawEndPoint);
 
     // Check if Shift key is pressed (allow free drawing)
     const isShiftPressed = 'shiftKey' in event && event.shiftKey;
@@ -101,8 +102,25 @@ export class LineTool {
       endPoint = rawEndPoint;
     }
 
+    console.log('🟦 LINE TOOL - endPoint after snap:', endPoint);
+
     // Only complete if we have both points
     if (this.hasStartPoint && this.onAnnotationComplete) {
+      // Check minimum line length (at least 5 pixels)
+      const dx = endPoint.x - this.startPoint.x;
+      const dy = endPoint.y - this.startPoint.y;
+      const lineLength = Math.sqrt(dx * dx + dy * dy);
+
+      if (lineLength < 5) {
+        // Line too short, cancel instead of creating
+        console.warn('⚠️ Line too short (< 5px), cancelling:', lineLength);
+        this.hasStartPoint = false;
+        this.isDrawing = false;
+        this.startPoint = null;
+        this.currentEndPoint = null;
+        return;
+      }
+
       // Convert to normalized coordinates (0-1)
       const normalizedStart = screenToNormalized(
         this.startPoint,
