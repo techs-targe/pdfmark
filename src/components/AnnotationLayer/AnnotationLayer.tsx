@@ -70,19 +70,33 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
   // Keep a state version for triggering re-renders when needed
   const [toolsInitialized, setToolsInitialized] = useState(false);
 
-  // Wrapper for onAnnotationAdd that handles pending state
-  const handleAnnotationAdd = useCallback((annotation: Annotation) => {
-    // Add to pending immediately (synchronous)
-    setPendingAnnotations(prev => [...prev, annotation]);
+  // Store onAnnotationAdd in ref to avoid recreating handleAnnotationAdd
+  const onAnnotationAddRef = useRef(onAnnotationAdd);
+  useEffect(() => {
+    onAnnotationAddRef.current = onAnnotationAdd;
+  }, [onAnnotationAdd]);
 
-    // Notify parent (asynchronous state update)
-    onAnnotationAdd(annotation);
+  // Wrapper for onAnnotationAdd that handles pending state
+  // CRITICAL: No dependencies to avoid recreating and causing tool re-initialization
+  const handleAnnotationAdd = useCallback((annotation: Annotation) => {
+    console.log('🔴 handleAnnotationAdd called, type:', annotation.type, 'id:', annotation.id);
+
+    // Add to pending immediately (synchronous)
+    setPendingAnnotations(prev => {
+      const newPending = [...prev, annotation];
+      console.log('🔴 pendingAnnotations updated, count:', newPending.length);
+      return newPending;
+    });
+
+    // Notify parent (asynchronous state update) using ref
+    onAnnotationAddRef.current(annotation);
 
     // Remove from pending after parent state should have updated
     setTimeout(() => {
       setPendingAnnotations(prev => prev.filter(a => a.id !== annotation.id));
+      console.log('🔴 Removed from pending after 50ms, id:', annotation.id);
     }, 50);
-  }, [onAnnotationAdd]);
+  }, []); // Empty dependency array - stable callback
 
   // Initialize tools once and keep them stable
   useEffect(() => {
@@ -149,7 +163,7 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
       canvas.removeEventListener('gesturechange', handleGestureChange);
       canvas.removeEventListener('gestureend', handleGestureEnd);
     };
-  }, [toolsInitialized, handleAnnotationAdd]);
+  }, [toolsInitialized]); // Removed handleAnnotationAdd from dependencies
 
   // Cancel previous tool when switching tools
   useEffect(() => {
@@ -226,6 +240,8 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
     const pageAnnotations = annotations.filter(a => a.pageNumber === pageNumber);
     const pagePendingAnnotations = pendingAnnotations.filter(a => a.pageNumber === pageNumber);
     const allAnnotations = [...pageAnnotations, ...pagePendingAnnotations];
+
+    console.log('🟢 RENDER - pageAnnotations:', pageAnnotations.length, 'pendingAnnotations:', pagePendingAnnotations.length, 'total:', allAnnotations.length);
 
     allAnnotations.forEach((annotation) => {
       ctx.save();
@@ -814,9 +830,12 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
 
       switch (currentTool) {
         case 'pen':
+          console.log('🔵 PEN - Calling stopDrawing, pageNumber:', pageNumber);
           toolsRef.current.pen.stopDrawing(pageNumber);
+          console.log('🔵 PEN - stopDrawing completed, calling forceUpdate');
           // Force update to show pending annotation immediately
           forceUpdate(prev => prev + 1);
+          console.log('🔵 PEN - forceUpdate called');
           break;
         case 'eraser':
           toolsRef.current.eraser.stopErasing();
