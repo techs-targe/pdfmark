@@ -29,7 +29,7 @@ export class LineTool {
     this.lineWidth = width;
   }
 
-  startDrawing(event: MouseEvent | TouchEvent): void {
+  startDrawing(event: MouseEvent | TouchEvent | PointerEvent): void {
     const point = getRelativePosition(event, this.canvas);
 
     // CRITICAL: Only handle first click here
@@ -43,7 +43,7 @@ export class LineTool {
     }
   }
 
-  draw(event: MouseEvent | TouchEvent): void {
+  draw(event: MouseEvent | TouchEvent | PointerEvent): void {
     if (!this.hasStartPoint || !this.startPoint) {
       return;
     }
@@ -72,7 +72,7 @@ export class LineTool {
     }
   }
 
-  stopDrawing(event: MouseEvent | TouchEvent, pageNumber: number): void {
+  stopDrawing(event: MouseEvent | TouchEvent | PointerEvent, pageNumber: number): void {
     if (!this.hasStartPoint || !this.startPoint) {
       console.warn('🟦 LINE TOOL - stopDrawing called but no startPoint');
       return;

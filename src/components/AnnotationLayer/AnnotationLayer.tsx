@@ -648,14 +648,18 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
 
       const canvas = canvasRef.current;
       if (!canvas) return;
-      
+
       const rect = canvas.getBoundingClientRect();
-      const x = 'touches' in event.nativeEvent
-        ? event.nativeEvent.touches[0].clientX - rect.left
-        : event.nativeEvent.clientX - rect.left;
-      const y = 'touches' in event.nativeEvent
-        ? event.nativeEvent.touches[0].clientY - rect.top
-        : event.nativeEvent.clientY - rect.top;
+      const x = 'touches' in event
+        ? event.touches[0].clientX - rect.left
+        : 'clientX' in event
+        ? event.clientX - rect.left
+        : 0;
+      const y = 'touches' in event
+        ? event.touches[0].clientY - rect.top
+        : 'clientY' in event
+        ? event.clientY - rect.top
+        : 0;
 
       // Handle select tool
       if (currentTool === 'select') {
@@ -938,9 +942,6 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerLeave}
-        onTouchStart={handlePointerDown}
-        onTouchMove={handlePointerMove}
-        onTouchEnd={handlePointerUp}
         onDoubleClick={handleDoubleClick}
       />
       

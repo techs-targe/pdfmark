@@ -8,6 +8,7 @@ import {
   WindowLayout,
 } from '../../types';
 import { HelpModal } from '../Help/HelpModal';
+import { forceResetAllTools } from '../../utils/penDetection';
 import clsx from 'clsx';
 
 interface ToolbarProps {
@@ -92,7 +93,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               {tools.map((tool) => (
                 <button
                   key={tool.id}
-                  onClick={() => onToolChange(tool.id as ToolType)}
+                  onClick={() => {
+                    // CRITICAL: Force reset ALL tool detection states before tool change
+                    forceResetAllTools();
+                    onToolChange(tool.id as ToolType);
+                  }}
                   className={clsx('p-1.5 rounded text-xs', {
                     'bg-blue-600 text-white': currentTool === tool.id,
                     'text-gray-300 hover:bg-gray-700': currentTool !== tool.id,
@@ -129,7 +134,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   }
 
   return (
-    <div className={clsx('bg-toolbar-bg text-white border-b border-gray-700 overflow-x-auto', {
+    <div className={clsx('bg-toolbar-bg text-white border-b border-gray-700 overflow-x-auto relative z-30', {
       'h-toolbar': !isMobile,
       'h-12': isMobile,
     })}>
@@ -145,7 +150,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         {tools.map((tool) => (
           <button
             key={tool.id}
-            onClick={() => onToolChange(tool.id as ToolType)}
+            onClick={() => {
+              // CRITICAL: Force reset ALL tool detection states before tool change
+              forceResetAllTools();
+              onToolChange(tool.id as ToolType);
+            }}
             className={clsx({
               'toolbar-button': !isMobile,
               'p-1.5 rounded text-sm': isMobile,

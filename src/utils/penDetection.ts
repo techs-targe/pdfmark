@@ -125,6 +125,16 @@ class PenDetectionManager {
     }
   }
 
+  // Force reset all tool states immediately (for toolbar button clicks)
+  forceResetAllTools(): void {
+    this.isAnyToolActive = false;
+    this.activeToolType = null;
+    this.isPenActive = false;
+    // CRITICAL: Reset lastPenEventTime to prevent cooldown period from blocking
+    this.lastPenEventTime = 0;
+    console.log('🔄 ALL tool states FORCE RESET (including pen event time)');
+  }
+
   // Check if any drawing tool is currently active
   isAnyDrawingToolActive(): boolean {
     return this.isPenCurrentlyActive() || this.isAnyToolActive;
@@ -156,3 +166,4 @@ export const shouldDisableKeyboardShortcuts = () => penDetection.shouldDisableKe
 export const setToolActive = (toolType: string, active: boolean) => penDetection.setToolActive(toolType, active);
 export const isAnyDrawingToolActive = () => penDetection.isAnyDrawingToolActive();
 export const getActiveToolType = () => penDetection.getActiveToolType();
+export const forceResetAllTools = () => penDetection.forceResetAllTools();

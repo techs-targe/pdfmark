@@ -139,7 +139,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   };
 
   return (
-    <div className={clsx('flex items-center gap-4 px-4 py-2 bg-gray-800 border-t border-gray-700 text-sm', className)}>
+    <div className={clsx('flex items-center gap-4 px-4 py-2 bg-gray-800 border-t border-gray-700 text-sm relative z-30', className)}>
       {/* Timer display and controls */}
       <div className="flex items-center gap-2 relative">
         <button
