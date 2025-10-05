@@ -536,7 +536,8 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
   // Handle Ctrl+wheel zoom (reserved for future use - currently handled by SimplePDFViewer)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleWheel = useCallback((e: React.WheelEvent, paneId: string, tabId: string) => {
-    if (e.ctrlKey || e.metaKey) {
+    // Support both Ctrl+Wheel and Shift+Ctrl+Wheel for zoom
+    if ((e.ctrlKey || e.metaKey) || (e.shiftKey && (e.ctrlKey || e.metaKey))) {
       // Prevent browser zoom completely
       e.preventDefault();
       e.stopPropagation();

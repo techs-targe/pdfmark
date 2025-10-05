@@ -36,6 +36,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   zoomLevel,
 }) => {
   const [isTimerActive, setIsTimerActive] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [remainingSeconds, setRemainingSeconds] = useState(0);
   const [showPresets, setShowPresets] = useState(false);
   const [showCustomInput, setShowCustomInput] = useState(false);
@@ -54,11 +55,12 @@ export const StatusBar: React.FC<StatusBarProps> = ({
 
   // Timer countdown
   useEffect(() => {
-    if (isTimerActive && remainingSeconds > 0) {
+    if (isTimerActive && !isPaused && remainingSeconds > 0) {
       intervalRef.current = setInterval(() => {
         setRemainingSeconds(prev => {
           if (prev <= 1) {
             setIsTimerActive(false);
+            setIsPaused(false);
             showTimeUpNotification();
             return 0;
           }
@@ -72,7 +74,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
         }
       };
     }
-  }, [isTimerActive, remainingSeconds]);
+  }, [isTimerActive, isPaused, remainingSeconds]);
 
   const showTimeUpNotification = useCallback(() => {
     // Show popup notification
@@ -89,12 +91,26 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   const startTimer = useCallback((minutes: number) => {
     setRemainingSeconds(minutes * 60);
     setIsTimerActive(true);
+    setIsPaused(false);
     setShowPresets(false);
     setShowCustomInput(false);
   }, []);
 
+  const pauseTimer = useCallback(() => {
+    setIsPaused(true);
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+  }, []);
+
+  const resumeTimer = useCallback(() => {
+    setIsPaused(false);
+    setIsTimerActive(true);
+  }, []);
+
   const stopTimer = useCallback(() => {
     setIsTimerActive(false);
+    setIsPaused(false);
     setRemainingSeconds(0);
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -129,30 +145,53 @@ export const StatusBar: React.FC<StatusBarProps> = ({
         <button
           onClick={(e) => {
             e.stopPropagation();
-            setShowPresets(!showPresets);
+            if (remainingSeconds === 0) {
+              setShowPresets(!showPresets);
+            }
           }}
           className={clsx(
             "flex items-center gap-2 px-3 py-1 rounded transition-colors",
-            isTimerActive
+            isTimerActive && !isPaused
               ? "bg-blue-600 hover:bg-blue-700"
+              : isPaused
+              ? "bg-yellow-600 hover:bg-yellow-700"
               : "bg-gray-700 hover:bg-gray-600"
           )}
           title="タイマーを設定"
         >
-          <span>⏱️</span>
+          <span>{isPaused ? '⏸️' : '⏱️'}</span>
           <span className="text-white min-w-[60px]">
             {remainingSeconds > 0 ? formatTime(remainingSeconds) : 'タイマー'}
           </span>
         </button>
 
         {remainingSeconds > 0 && (
-          <button
-            onClick={stopTimer}
-            className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded transition-colors text-xs"
-            title="タイマーを停止"
-          >
-            停止
-          </button>
+          <>
+            {isPaused ? (
+              <button
+                onClick={resumeTimer}
+                className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded transition-colors text-xs"
+                title="タイマーを再開"
+              >
+                再開
+              </button>
+            ) : (
+              <button
+                onClick={pauseTimer}
+                className="px-2 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded transition-colors text-xs"
+                title="タイマーを一時停止"
+              >
+                一時停止
+              </button>
+            )}
+            <button
+              onClick={stopTimer}
+              className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded transition-colors text-xs"
+              title="タイマーを停止"
+            >
+              停止
+            </button>
+          </>
         )}
 
         {/* Preset time selection dropdown */}

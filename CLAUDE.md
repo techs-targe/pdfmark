@@ -261,6 +261,118 @@ npm run dev
 curl -I https://your-domain.com/pdfmark/
 ```
 
+## GitHub Pages Deployment (CRITICAL)
+
+### Branch Strategy
+
+**Two branches with different purposes:**
+
+1. **`stable-v1` branch**: Development and testing
+   - Use for active development
+   - GitHub Actions runs TypeScript checks
+   - Does NOT deploy to GitHub Pages
+
+2. **`main` branch**: Production deployment
+   - Synchronized with `stable-v1`
+   - GitHub Actions deploys to GitHub Pages
+   - Protected by environment rules
+
+### Deployment Workflow
+
+**Standard workflow for all changes:**
+
+```bash
+# 1. Make changes and commit to stable-v1
+git add .
+git commit -m "Your changes"
+git push origin stable-v1
+
+# 2. Sync main branch with stable-v1
+git checkout main
+git reset --hard stable-v1
+git push origin main --force
+git checkout stable-v1
+```
+
+**One-line command (recommended):**
+```bash
+git push origin stable-v1 && git checkout main && git reset --hard stable-v1 && git push origin main --force && git checkout stable-v1
+```
+
+### GitHub Actions Configuration
+
+**Workflow file:** `.github/workflows/deploy.yml`
+
+```yaml
+on:
+  push:
+    branches: [ main, stable-v1 ]  # Build on both branches
+
+deploy:
+  if: github.ref == 'refs/heads/main'  # Deploy ONLY from main
+```
+
+**Behavior:**
+- **stable-v1 push**: Build ✓, TypeScript check ✓, Deploy ✗ (skipped)
+- **main push**: Build ✓, TypeScript check ✓, Deploy ✓
+
+### TypeScript Error Detection
+
+**CRITICAL DIFFERENCE:**
+
+- **Development (`npm run dev`)**: Loose type checking, fast feedback
+- **Production (`npm run build`)**: Strict TypeScript compilation
+
+**Common issues:**
+1. Unused imports/variables trigger errors only in build
+2. Type mismatches hidden in development
+3. `import.meta.env` requires Vite type definitions
+
+**Best practices:**
+1. Always run `npm run build` before pushing to catch errors
+2. Use `npm run typecheck` for quick type validation
+3. Fix TypeScript errors immediately, don't suppress them
+
+### Common Deployment Errors and Solutions
+
+**Error: "Branch stable-v1 is not allowed to deploy"**
+- **Cause**: GitHub Pages environment protection rules
+- **Solution**: Deploy only from `main` branch (already configured)
+
+**Error: "TypeScript compilation failed"**
+- **Cause**: Strict type checking in production build
+- **Solution**:
+  ```bash
+  # Run locally to see errors
+  npm run build
+
+  # Fix all TypeScript errors before pushing
+  npm run typecheck
+  ```
+
+**Error: "Property 'env' does not exist on type 'ImportMeta'"**
+- **Cause**: Missing Vite type definitions
+- **Solution**: Add `/// <reference types="vite/client" />` to file
+
+**Error: "Unused variable/import"**
+- **Cause**: TypeScript strict mode catches unused code
+- **Solution**: Remove unused code OR add suppression:
+  ```typescript
+  // For unused variables
+  void variableName;
+
+  // For ESLint
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  ```
+
+### Deployment Verification
+
+After push to `main`, verify deployment:
+
+1. Check GitHub Actions: https://github.com/techs-targe/pdfmark/actions
+2. Wait for green checkmark (usually 1-2 minutes)
+3. Access GitHub Pages: https://techs-targe.github.io/pdfmark/
+
 ## Key Implementation Notes
 
 1. **All code and comments must be in English** for GitHub publication

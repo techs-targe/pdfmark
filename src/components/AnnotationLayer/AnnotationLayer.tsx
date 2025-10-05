@@ -143,6 +143,23 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
     };
   }, [onAnnotationAdd, onAnnotationRemove, forceUpdate]);
 
+  // Cancel previous tool when switching tools
+  useEffect(() => {
+    if (tools.line && currentTool !== 'line') {
+      // Cancel line tool when switching away from it
+      if (tools.line.isActive()) {
+        tools.line.cancel();
+        forceUpdate(prev => prev + 1);
+      }
+    }
+    if (tools.pen && currentTool !== 'pen') {
+      if (tools.pen.isActive()) {
+        tools.pen.cancel();
+        forceUpdate(prev => prev + 1);
+      }
+    }
+  }, [currentTool, tools, forceUpdate]);
+
   // Update tool settings
   useEffect(() => {
     if (tools.pen) {
@@ -650,11 +667,9 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
       // Don't handle dragging here - ResizableText handles it
 
       // For line tool, we always want to update preview even if not "drawing"
-      if (currentTool === 'line' && tools.line) {
-        if (tools.line.isActive()) {
-          tools.line.draw(event.nativeEvent);
-          forceUpdate(prev => prev + 1);
-        }
+      if (currentTool === 'line' && tools.line && tools.line.isActive()) {
+        tools.line.draw(event.nativeEvent);
+        forceUpdate(prev => prev + 1);
         return;
       }
       
