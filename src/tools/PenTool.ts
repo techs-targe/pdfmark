@@ -96,16 +96,11 @@ export class PenTool {
   }
 
   startDrawing(event: MouseEvent | TouchEvent | PointerEvent): void {
-    const eventType = (event as PointerEvent).pointerType || 'unknown';
-    console.log(`🟢 PenTool.startDrawing - Event type: ${eventType}, isDrawing: ${this.isDrawing}`);
-
     this.isDrawing = true;
     this.currentPath = [];
 
     const point = getRelativePosition(event, this.canvas);
     const pressure = this.getPressure(event);
-
-    console.log(`🟢 PenTool.startDrawing - Point: (${point.x}, ${point.y}), Pressure: ${pressure}`);
 
     this.currentPath.push({
       x: point.x,
@@ -113,15 +108,10 @@ export class PenTool {
       pressure,
       timestamp: performance.now()
     });
-
-    console.log(`🟢 PenTool.startDrawing - Path length: ${this.currentPath.length}`);
   }
 
   draw(event: MouseEvent | TouchEvent | PointerEvent): void {
-    const eventType = (event as PointerEvent).pointerType || 'unknown';
-
     if (!this.isDrawing) {
-      console.log(`🔴 PenTool.draw - NOT DRAWING (Event type: ${eventType})`);
       return;
     }
 
@@ -138,29 +128,19 @@ export class PenTool {
 
     if (this.shouldAddPoint(newPoint)) {
       this.currentPath.push(newPoint);
-      console.log(`🟡 PenTool.draw - Added point (${eventType}), Path length: ${this.currentPath.length}`);
-    } else {
-      console.log(`🟡 PenTool.draw - Skipped point (${eventType}), too close`);
     }
   }
 
   stopDrawing(pageNumber: number): void {
-    console.log(`🔴 PenTool.stopDrawing - isDrawing: ${this.isDrawing}, Path length: ${this.currentPath.length}, Page: ${pageNumber}`);
-
     if (!this.isDrawing) {
-      console.log(`🔴 PenTool.stopDrawing - NOT DRAWING, returning early`);
       return;
     }
 
     this.isDrawing = false;
-    console.log(`🔴 PenTool.stopDrawing - Set isDrawing to false`);
 
     if (this.currentPath.length > 1 && this.onAnnotationComplete) {
-      console.log(`🔴 PenTool.stopDrawing - Creating annotation with ${this.currentPath.length} points`);
-
       // Create smooth path for final annotation
       const smoothPath = this.createSmoothPath();
-      console.log(`🔴 PenTool.stopDrawing - Smoothed path has ${smoothPath.length} points`);
 
       // Convert to normalized coordinates
       const normalizedPoints = screenPointsToNormalized(
@@ -168,7 +148,6 @@ export class PenTool {
         this.canvas.width,
         this.canvas.height
       );
-      console.log(`🔴 PenTool.stopDrawing - Normalized points: ${normalizedPoints.length}`);
 
       const annotation: PenAnnotation = {
         id: generateId(),
@@ -180,23 +159,15 @@ export class PenTool {
         pageNumber,
       };
 
-      console.log(`🔥 PenTool.stopDrawing - CALLING onAnnotationComplete with annotation ID: ${annotation.id}`);
       this.onAnnotationComplete(annotation);
-      console.log(`🔥 PenTool.stopDrawing - onAnnotationComplete CALLED successfully`);
-    } else {
-      console.log(`🔴 PenTool.stopDrawing - NOT creating annotation - Path length: ${this.currentPath.length}, onAnnotationComplete exists: ${!!this.onAnnotationComplete}`);
     }
 
     this.currentPath = [];
-    console.log(`🔴 PenTool.stopDrawing - Cleared currentPath`);
   }
 
   cancel(): void {
-    console.log(`🚫 PenTool.cancel - CANCELLING DRAWING! Path length was: ${this.currentPath.length}`);
-    console.trace('🚫 PenTool.cancel - STACK TRACE:'); // スタックトレースで呼び出し元を特定
     this.isDrawing = false;
     this.currentPath = [];
-    console.log(`🚫 PenTool.cancel - Cancelled and cleared path`);
   }
 
   isActive(): boolean {

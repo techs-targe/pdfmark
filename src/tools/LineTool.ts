@@ -71,7 +71,6 @@ export class LineTool {
       // Shift key pressed: allow free drawing
       this.currentEndPoint = rawEndPoint;
     }
-    // Don't draw directly - let annotation layer handle it
   }
 
   stopDrawing(event: MouseEvent | TouchEvent, pageNumber: number): void {

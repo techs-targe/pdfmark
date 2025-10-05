@@ -50,7 +50,9 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
   const lastTouchCountRef = useRef<number>(0);
   const previousToolRef = useRef<ToolType | null>(null);
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
-  const [tools, setTools] = useState<{
+
+  // Use refs to keep stable tool instances
+  const toolsRef = useRef<{
     pen: PenTool | null;
     eraser: EraserTool | null;
     line: LineTool | null;
@@ -62,111 +64,101 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
     text: null,
   });
 
-  // Initialize tools and gesture detection
+  // Keep a state version for triggering re-renders when needed
+  const [toolsInitialized, setToolsInitialized] = useState(false);
+
+  // Initialize tools once and keep them stable
   useEffect(() => {
     if (!canvasRef.current) return;
+    if (toolsInitialized) {
+      return;
+    }
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const newTools = {
+    toolsRef.current = {
       pen: new PenTool(canvas, ctx, onAnnotationAdd),
       eraser: new EraserTool(canvas, ctx, (ids) => ids.forEach(onAnnotationRemove)),
       line: new LineTool(canvas, ctx, onAnnotationAdd),
       text: new TextTool(canvas, ctx, onAnnotationAdd),
     };
 
-    setTools(newTools);
+    setToolsInitialized(true);
 
-    // Add gesture event listeners for pinch detection
     const handleGestureStart = (e: Event) => {
-      console.log('🚫 Gesture start detected');
-
-      // CRITICAL FIX: Don't cancel pen drawing for genuine pen input
       if (isPenActive()) {
-        console.log('🚫 Gesture start - PEN ACTIVE, NOT cancelling drawing');
         e.preventDefault();
         return;
       }
-
-      console.log('🚫 Gesture start - preventing non-pen drawing');
       e.preventDefault();
-      if (isDrawingRef.current && newTools.pen.isActive()) {
-        newTools.pen.cancel();
+      if (isDrawingRef.current && toolsRef.current.pen?.isActive()) {
+        toolsRef.current.pen.cancel();
         isDrawingRef.current = false;
         forceUpdate(prev => prev + 1);
       }
-      // Stop tracking tool activities
       setToolActive('eraser', false);
       setToolActive('line', false);
     };
 
     const handleGestureChange = (e: Event) => {
-      console.log('🚫 Gesture change detected');
-
-      // CRITICAL FIX: Don't cancel pen drawing for genuine pen input
       if (isPenActive()) {
-        console.log('🚫 Gesture change - PEN ACTIVE, NOT cancelling drawing');
         e.preventDefault();
         return;
       }
-
-      console.log('🚫 Gesture change - preventing non-pen drawing');
       e.preventDefault();
       if (isDrawingRef.current) {
-        if (newTools.pen.isActive()) newTools.pen.cancel();
-        if (newTools.eraser.isActive()) newTools.eraser.cancel();
+        if (toolsRef.current.pen?.isActive()) toolsRef.current.pen.cancel();
+        if (toolsRef.current.eraser?.isActive()) toolsRef.current.eraser.cancel();
         isDrawingRef.current = false;
         forceUpdate(prev => prev + 1);
       }
-      // Stop tracking tool activities
       setToolActive('eraser', false);
       setToolActive('line', false);
     };
 
     const handleGestureEnd = (e: Event) => {
-      console.log('🚫 Gesture end detected');
       e.preventDefault();
     };
 
-    // Add gesture event listeners (for iOS Safari pinch detection)
     canvas.addEventListener('gesturestart', handleGestureStart, { passive: false });
     canvas.addEventListener('gesturechange', handleGestureChange, { passive: false });
     canvas.addEventListener('gestureend', handleGestureEnd, { passive: false });
 
     return () => {
-      // Cleanup
-      newTools.text.cancel();
+      if (toolsRef.current.text) toolsRef.current.text.cancel();
       canvas.removeEventListener('gesturestart', handleGestureStart);
       canvas.removeEventListener('gesturechange', handleGestureChange);
       canvas.removeEventListener('gestureend', handleGestureEnd);
     };
-  }, [onAnnotationAdd, onAnnotationRemove, forceUpdate]);
+  }, [toolsInitialized]);
 
   // Cancel previous tool when switching tools
   useEffect(() => {
-    if (tools.line && currentTool !== 'line') {
+    if (!toolsInitialized) return;
+    if (toolsRef.current.line && currentTool !== 'line') {
       // Cancel line tool when switching away from it
-      if (tools.line.isActive()) {
-        tools.line.cancel();
+      if (toolsRef.current.line.isActive()) {
+        toolsRef.current.line.cancel();
         forceUpdate(prev => prev + 1);
       }
     }
-    if (tools.pen && currentTool !== 'pen') {
-      if (tools.pen.isActive()) {
-        tools.pen.cancel();
+    if (toolsRef.current.pen && currentTool !== 'pen') {
+      if (toolsRef.current.pen.isActive()) {
+        toolsRef.current.pen.cancel();
         forceUpdate(prev => prev + 1);
       }
     }
-  }, [currentTool, tools, forceUpdate]);
+  }, [currentTool, toolsInitialized]);
 
   // Handle Escape key to reset line tool
   useEffect(() => {
+    if (!toolsInitialized) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (currentTool === 'line' && tools.line && tools.line.isActive()) {
-          tools.line.cancel();
+        if (currentTool === 'line' && toolsRef.current.line && toolsRef.current.line.isActive()) {
+          toolsRef.current.line.cancel();
           forceUpdate(prev => prev + 1);
         }
       }
@@ -176,26 +168,27 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [currentTool, tools, forceUpdate]);
+  }, [currentTool, toolsInitialized]);
 
   // Update tool settings
   useEffect(() => {
-    if (tools.pen) {
-      tools.pen.setColor(toolSettings.color);
-      tools.pen.setLineWidth(toolSettings.lineWidth);
+    if (!toolsInitialized) return;
+    if (toolsRef.current.pen) {
+      toolsRef.current.pen.setColor(toolSettings.color);
+      toolsRef.current.pen.setLineWidth(toolSettings.lineWidth);
     }
-    if (tools.eraser) {
-      tools.eraser.setEraserSize(toolSettings.eraserSize);
+    if (toolsRef.current.eraser) {
+      toolsRef.current.eraser.setEraserSize(toolSettings.eraserSize);
     }
-    if (tools.line) {
-      tools.line.setColor(toolSettings.color);
-      tools.line.setLineWidth(toolSettings.lineWidth);
+    if (toolsRef.current.line) {
+      toolsRef.current.line.setColor(toolSettings.color);
+      toolsRef.current.line.setLineWidth(toolSettings.lineWidth);
     }
-    if (tools.text) {
-      tools.text.setColor(toolSettings.color);
-      tools.text.setFontSize(toolSettings.fontSize);
+    if (toolsRef.current.text) {
+      toolsRef.current.text.setColor(toolSettings.color);
+      toolsRef.current.text.setFontSize(toolSettings.fontSize);
     }
-  }, [tools, toolSettings]);
+  }, [toolsInitialized, toolSettings]);
 
   // Maintain canvas dimensions and draw annotations
   useEffect(() => {
@@ -327,8 +320,8 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
     });
 
     // Draw current drawing path with smooth rendering
-    if (tools.pen && tools.pen.isActive()) {
-      const currentPath = tools.pen.getCurrentPath();
+    if (toolsRef.current.pen && toolsRef.current.pen.isActive()) {
+      const currentPath = toolsRef.current.pen.getCurrentPath();
       if (currentPath && currentPath.points.length > 0) {
         ctx.save();
         ctx.strokeStyle = currentPath.color;
@@ -401,8 +394,8 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
     }
 
     // Draw current line if exists (with dashed preview)
-    if (tools.line && tools.line.isActive()) {
-      const currentLine = tools.line.getCurrentLine();
+    if (currentTool === 'line' && toolsRef.current.line && toolsRef.current.line.isActive()) {
+      const currentLine = toolsRef.current.line.getCurrentLine();
       if (currentLine) {
         ctx.save();
         ctx.strokeStyle = currentLine.color;
@@ -442,8 +435,8 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
     }
 
     // Draw cursor indicator for line tool
-    if (currentTool === 'line' && cursorPosition && tools.line) {
-      const state = tools.line.getState();
+    if (currentTool === 'line' && cursorPosition && toolsRef.current.line) {
+      const state = toolsRef.current.line.getState();
       const label = state === 'waiting-first' ? '1' : '2';
       const cursorSize = 24;
 
@@ -469,7 +462,7 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
 
       ctx.restore();
     }
-  }, [annotations, canvasWidth, canvasHeight, tools.pen, tools.line, currentTool, pageNumber, renderCounter, cursorPosition]);
+  }, [annotations, canvasWidth, canvasHeight, toolsInitialized, currentTool, pageNumber, renderCounter, cursorPosition]);
 
   // Check if click is on a text annotation
   const getTextAnnotationAtPoint = useCallback((x: number, y: number) => {
@@ -516,13 +509,11 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
   const isMultiFingerGesture = useCallback((event: any) => {
     // CRITICAL FIX: If this is a pen/stylus input, NEVER treat it as multi-finger gesture
     if (isPenEvent(event)) {
-      console.log('✅ Pen input confirmed, completely skipping multi-finger check');
       return false;
     }
 
     // If global pen detection says pen is active, skip multi-finger check
     if (isPenActive()) {
-      console.log('✅ Global pen detection active, skipping multi-finger check');
       return false;
     }
 
@@ -534,21 +525,17 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
     if (event.touches && event.touches.length >= 2) {
       touchCount = event.touches.length;
       touches = event.touches;
-      console.log('🚫 React event: 2+ fingers detected:', touchCount);
     } else if (event.nativeEvent) {
       if (event.nativeEvent.touches && event.nativeEvent.touches.length >= 2) {
         touchCount = event.nativeEvent.touches.length;
         touches = event.nativeEvent.touches;
-        console.log('🚫 Native event: 2+ fingers detected:', touchCount);
       } else if (event.nativeEvent.originalEvent && event.nativeEvent.originalEvent.touches && event.nativeEvent.originalEvent.touches.length >= 2) {
         touchCount = event.nativeEvent.originalEvent.touches.length;
         touches = event.nativeEvent.originalEvent.touches;
-        console.log('🚫 Original event: 2+ fingers detected:', touchCount);
       }
     } else if ('targetTouches' in event && event.targetTouches && event.targetTouches.length >= 2) {
       touchCount = event.targetTouches.length;
       touches = event.targetTouches;
-      console.log('🚫 Target touches: 2+ fingers detected:', touchCount);
     }
 
     // Store touch count for tracking
@@ -561,12 +548,11 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
       // Store initial distance if this is the first multi-touch event
       if (initialTouchDistanceRef.current === null) {
         initialTouchDistanceRef.current = currentDistance;
-        console.log('🚫 Initial touch distance recorded:', currentDistance);
       } else {
         // Check if this is a pinch gesture (distance changed significantly)
         const distanceChange = Math.abs(currentDistance - initialTouchDistanceRef.current);
         if (distanceChange > 10) { // 10px threshold for pinch detection
-          console.log('🚫 Pinch gesture detected! Distance change:', distanceChange);
+          // Pinch gesture detected
         }
       }
 
@@ -575,7 +561,6 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
 
     // Check for scale-based pinch detection (iOS Safari)
     if (event.nativeEvent && 'scale' in event.nativeEvent && event.nativeEvent.scale !== 1) {
-      console.log('🚫 Pinch gesture detected via scale:', event.nativeEvent.scale);
       return true;
     }
 
@@ -592,7 +577,7 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
   const handlePointerDown = useCallback(
     (event: React.MouseEvent | React.TouchEvent | React.PointerEvent) => {
       if (isDisabled) return;
-      if (!tools.pen || !tools.eraser || !tools.line || !tools.text) return;
+      if (!toolsRef.current.pen || !toolsRef.current.eraser || !toolsRef.current.line || !toolsRef.current.text) return;
 
       // Handle middle mouse button click for tool toggle
       if ('button' in event && event.button === 1 && onToolChange) {
@@ -613,26 +598,18 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
       // Check if this is a pen/stylus input using our robust detection
       const isPenInput = isPenEvent(event.nativeEvent || event);
 
-      if (isPenInput) {
-        console.log('🔥 CONFIRMED PEN INPUT in handlePointerDown - PROCEEDING WITH DRAWING');
-      }
-
       // For pen input, COMPLETELY BYPASS multi-finger gesture detection
-      if (isPenInput) {
-        console.log('✅ Pen input - bypassing ALL gesture checks');
-        // Proceed directly to drawing logic
-      } else {
+      if (!isPenInput) {
         // Only check for multi-finger gestures for non-pen input
         if (isMultiFingerGesture(event)) {
-          console.log('🚫 Multi-finger gesture detected, preventing drawing');
           // Cancel any current drawing
           if (isDrawingRef.current) {
             isDrawingRef.current = false;
-            if (tools.pen && tools.pen.isActive()) {
-              tools.pen.cancel();
+            if (toolsRef.current.pen && toolsRef.current.pen.isActive()) {
+              toolsRef.current.pen.cancel();
             }
-            if (tools.eraser && tools.eraser.isActive()) {
-              tools.eraser.cancel();
+            if (toolsRef.current.eraser && toolsRef.current.eraser.isActive()) {
+              toolsRef.current.eraser.cancel();
               setToolActive('eraser', false); // Stop tracking eraser activity
             }
           }
@@ -671,77 +648,40 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
       // Start drawing based on current tool
       switch (currentTool) {
         case 'pen':
-          tools.pen.startDrawing(event.nativeEvent);
+          toolsRef.current.pen.startDrawing(event.nativeEvent);
           break;
         case 'eraser':
-          console.log(`🧹 AnnotationLayer.handlePointerDown - STARTING eraser tool`);
           setToolActive('eraser', true); // Track eraser tool activity
-          tools.eraser.startErasing(event.nativeEvent);
+          toolsRef.current.eraser.startErasing(event.nativeEvent);
           break;
         case 'text':
-          tools.text.createTextInput(event.nativeEvent, pageNumber);
+          toolsRef.current.text.createTextInput(event.nativeEvent, pageNumber);
           break;
         case 'line':
           // Line tool uses two-click approach
-          if (!tools.line.isActive()) {
-            tools.line.startDrawing(event.nativeEvent);
+          // Update cursor position on click
+          setCursorPosition({ x, y });
+
+          if (!toolsRef.current.line.isActive()) {
+            // First click - start line
+            toolsRef.current.line.startDrawing(event.nativeEvent);
+            forceUpdate(prev => prev + 1);
           } else {
-            tools.line.stopDrawing(event.nativeEvent, pageNumber);
+            // Second click - complete line
+            toolsRef.current.line.stopDrawing(event.nativeEvent, pageNumber);
+            forceUpdate(prev => prev + 1);
           }
           break;
       }
     },
-    [currentTool, tools, pageNumber, getTextAnnotationAtPoint, isDisabled, isMultiFingerGesture, onToolChange]
+    [currentTool, toolsInitialized, pageNumber, getTextAnnotationAtPoint, isDisabled, isMultiFingerGesture, onToolChange]
   );
 
   const handlePointerMove = useCallback(
     (event: React.MouseEvent | React.TouchEvent | React.PointerEvent) => {
       if (isDisabled) return;
+      if (!toolsInitialized) return;
 
-      // Update cursor position for line tool
-      if (currentTool === 'line') {
-        const canvas = canvasRef.current;
-        if (canvas) {
-          const rect = canvas.getBoundingClientRect();
-          const x = 'touches' in event.nativeEvent
-            ? event.nativeEvent.touches[0].clientX - rect.left
-            : event.nativeEvent.clientX - rect.left;
-          const y = 'touches' in event.nativeEvent
-            ? event.nativeEvent.touches[0].clientY - rect.top
-            : event.nativeEvent.clientY - rect.top;
-          setCursorPosition({ x, y });
-        }
-      } else {
-        setCursorPosition(null);
-      }
-
-      // Check if this is a pen/stylus input using our robust detection
-      const isPenInput = isPenEvent(event.nativeEvent || event);
-
-      // For pen input, COMPLETELY BYPASS multi-finger gesture detection
-      if (isPenInput) {
-        console.log('✅ Pen input during move - bypassing ALL gesture checks');
-        // Proceed directly to drawing logic
-      } else {
-        // Only check for multi-finger gestures for non-pen input
-        if (isMultiFingerGesture(event)) {
-          console.log('🚫 Multi-finger gesture detected during move, canceling drawing');
-          // Cancel any current drawing immediately
-          if (isDrawingRef.current) {
-            isDrawingRef.current = false;
-            if (tools.pen && tools.pen.isActive()) {
-              tools.pen.cancel();
-            }
-            if (tools.eraser && tools.eraser.isActive()) {
-              tools.eraser.cancel();
-              setToolActive('eraser', false); // Stop tracking eraser activity
-            }
-            forceUpdate(prev => prev + 1); // Force re-render to clear drawing
-          }
-          return;
-        }
-      }
-      
       const canvas = canvasRef.current;
       if (!canvas) return;
 
@@ -753,38 +693,69 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
         ? event.nativeEvent.touches[0].clientY - rect.top
         : event.nativeEvent.clientY - rect.top;
 
-      // Don't handle dragging here - ResizableText handles it
+      // Update cursor position for line tool
+      if (currentTool === 'line') {
+        setCursorPosition({ x, y });
+      } else {
+        setCursorPosition(null);
+      }
 
-      // For line tool, we always want to update preview even if not "drawing"
-      if (currentTool === 'line' && tools.line && tools.line.isActive()) {
-        tools.line.draw(event.nativeEvent);
-        forceUpdate(prev => prev + 1);
+      // Check if this is a pen/stylus input
+      const isPenInput = isPenEvent(event.nativeEvent || event);
+
+      // For pen input, COMPLETELY BYPASS multi-finger gesture detection
+      if (!isPenInput) {
+        // Only check for multi-finger gestures for non-pen input
+        const isMultiFinger = isMultiFingerGesture(event);
+        if (isMultiFinger) {
+          // Cancel any current drawing
+          if (isDrawingRef.current) {
+            isDrawingRef.current = false;
+            if (toolsRef.current.pen && toolsRef.current.pen.isActive()) {
+              toolsRef.current.pen.cancel();
+            }
+            if (toolsRef.current.eraser && toolsRef.current.eraser.isActive()) {
+              toolsRef.current.eraser.cancel();
+              setToolActive('eraser', false);
+            }
+            forceUpdate(prev => prev + 1);
+          }
+          return;
+        }
+      }
+
+      // For line tool, ALWAYS update preview when active
+      if (currentTool === 'line' && toolsRef.current.line) {
+        if (toolsRef.current.line.isActive()) {
+          toolsRef.current.line.draw(event.nativeEvent);
+          forceUpdate(prev => prev + 1);
+        }
         return;
       }
-      
-      if (!tools.pen || !tools.eraser || !tools.line || !isDrawingRef.current) return;
+
+      // For other tools, only draw if isDrawingRef is true
+      if (!isDrawingRef.current) return;
 
       switch (currentTool) {
         case 'pen':
-          tools.pen.draw(event.nativeEvent);
-          forceUpdate(prev => prev + 1); // Trigger re-render to show current path
-          break;
-        case 'eraser':
-          tools.eraser.erase(event.nativeEvent);
-          // Check for annotations to erase
-          if (tools.eraser.isActive()) {
-            const point = { x, y };
-            const toErase = tools.eraser.checkAnnotationsForErasure(point, annotations);
-            toErase.forEach(onAnnotationRemove);
+          if (toolsRef.current.pen) {
+            toolsRef.current.pen.draw(event.nativeEvent);
+            forceUpdate(prev => prev + 1);
           }
           break;
-        case 'line':
-          tools.line.draw(event.nativeEvent);
-          forceUpdate(prev => prev + 1); // Trigger re-render to show current line
+        case 'eraser':
+          if (toolsRef.current.eraser) {
+            toolsRef.current.eraser.erase(event.nativeEvent);
+            if (toolsRef.current.eraser.isActive()) {
+              const point = { x, y };
+              const toErase = toolsRef.current.eraser.checkAnnotationsForErasure(point, annotations);
+              toErase.forEach(onAnnotationRemove);
+            }
+          }
           break;
       }
     },
-    [currentTool, tools, annotations, onAnnotationRemove, forceUpdate, isDisabled, isMultiFingerGesture]
+    [currentTool, toolsInitialized, annotations, onAnnotationRemove, isDisabled, isMultiFingerGesture]
   );
 
   const handlePointerUp = useCallback(
@@ -792,26 +763,18 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
       // Check if this is a pen/stylus input using our robust detection
       const isPenInput = isPenEvent(event.nativeEvent || event);
 
-      if (isPenInput) {
-        console.log('🔥 CONFIRMED PEN INPUT in handlePointerUp - COMPLETING DRAWING NORMALLY');
-      }
-
       // For pen input, COMPLETELY BYPASS multi-finger gesture detection
-      if (isPenInput) {
-        console.log('✅ Pen input - bypassing ALL gesture checks, proceeding to complete drawing');
-        // Proceed directly to completion logic - NO CANCELLATION
-      } else {
+      if (!isPenInput) {
         // Only check for multi-finger gestures for non-pen input
         if (isMultiFingerGesture(event)) {
-          console.log('🚫 Multi-finger gesture detected during up, canceling drawing');
           // Cancel any current drawing immediately
           if (isDrawingRef.current) {
             isDrawingRef.current = false;
-            if (tools.pen && tools.pen.isActive()) {
-              tools.pen.cancel();
+            if (toolsRef.current.pen && toolsRef.current.pen.isActive()) {
+              toolsRef.current.pen.cancel();
             }
-            if (tools.eraser && tools.eraser.isActive()) {
-              tools.eraser.cancel();
+            if (toolsRef.current.eraser && toolsRef.current.eraser.isActive()) {
+              toolsRef.current.eraser.cancel();
               setToolActive('eraser', false); // Stop tracking eraser activity
             }
             forceUpdate(prev => prev + 1); // Force re-render to clear drawing
@@ -819,36 +782,29 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
           return;
         }
       }
-      
-      if (!tools.pen || !tools.eraser || !tools.line) return;
 
+      if (!toolsRef.current.pen || !toolsRef.current.eraser || !toolsRef.current.line) return;
+
+      // CRITICAL: Line tool uses click-based approach, completely skip
+      if (currentTool === 'line') {
+        return;
+      }
+
+      // For other tools, reset drawing state
       isDrawingRef.current = false;
-
-      // Complete the drawing operation (but not for line tool which uses click-based approach)
-      const nativeEvent = event.nativeEvent || event;
-      const eventType = (nativeEvent as PointerEvent).pointerType || 'unknown';
-      console.log(`🎯 AnnotationLayer.handlePointerUp - Current tool: ${currentTool}, Event type: ${eventType}`);
 
       switch (currentTool) {
         case 'pen':
-          console.log(`🎯 AnnotationLayer.handlePointerUp - CALLING tools.pen.stopDrawing for ${eventType} event`);
-          tools.pen.stopDrawing(pageNumber);
-          console.log(`🎯 AnnotationLayer.handlePointerUp - tools.pen.stopDrawing completed for ${eventType} event`);
-          forceUpdate(prev => prev + 1); // Final update to show completed annotation
+          toolsRef.current.pen.stopDrawing(pageNumber);
+          // Don't forceUpdate - let parent's state update trigger re-render naturally
           break;
         case 'eraser':
-          console.log(`🎯 AnnotationLayer.handlePointerUp - CALLING tools.eraser.stopErasing for ${eventType} event`);
-          tools.eraser.stopErasing();
-          console.log(`🧹 AnnotationLayer.handlePointerUp - STOPPING eraser tool`);
+          toolsRef.current.eraser.stopErasing();
           setToolActive('eraser', false); // Stop tracking eraser tool activity
-          break;
-        case 'line':
-          // Line tool uses two-click approach, don't stop on mouse up
-          console.log(`🎯 AnnotationLayer.handlePointerUp - Skipping line tool for ${eventType} event`);
           break;
       }
     },
-    [currentTool, tools, pageNumber, forceUpdate, isMultiFingerGesture]
+    [currentTool, toolsInitialized, pageNumber, isMultiFingerGesture]
   );
 
   // Handle double-click for text editing
@@ -876,29 +832,31 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
     // Clear cursor position when leaving canvas
     setCursorPosition(null);
 
-    if (!tools.pen || !tools.eraser || !tools.line) return;
+    if (!toolsRef.current.pen || !toolsRef.current.eraser || !toolsRef.current.line) return;
 
     // CRITICAL FIX: Don't cancel pen drawing on pointer leave for touch pens
     // Touch pens often trigger pointer leave events during normal drawing
     if (isPenActive()) {
-      console.log('🚫 handlePointerLeave - PEN ACTIVE, NOT cancelling drawing');
       return;
     }
 
-    console.log('🚫 handlePointerLeave - Cancelling non-pen operations');
+    // CRITICAL FIX: Don't cancel line tool - it uses click-based approach
+    if (currentTool === 'line') {
+      return;
+    }
+
     isDrawingRef.current = false;
 
     // Stop tracking tool activities
     setToolActive('eraser', false);
     setToolActive('line', false);
 
-    // Cancel active operations when pointer leaves canvas (but not for active pen)
-    tools.pen.cancel();
-    tools.eraser.cancel();
-    tools.line.cancel();
+    // Cancel active operations when pointer leaves canvas (but not for active pen or line tool)
+    toolsRef.current.pen.cancel();
+    toolsRef.current.eraser.cancel();
 
     forceUpdate(prev => prev + 1); // Update to clear any temporary drawing
-  }, [tools, forceUpdate]);
+  }, [toolsInitialized, currentTool]);
 
   // Define cursor style based on tool
   const getCursorStyle = () => {
