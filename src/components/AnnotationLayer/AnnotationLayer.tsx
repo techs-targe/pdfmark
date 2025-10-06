@@ -46,8 +46,6 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
   const [renderCounter, forceUpdate] = useState(0);
   const [selectedAnnotation, setSelectedAnnotation] = useState<string | null>(null);
   const [editingAnnotation, setEditingAnnotation] = useState<string | null>(null);
-  const initialTouchDistanceRef = useRef<number | null>(null);
-  const lastTouchCountRef = useRef<number>(0);
   const previousToolRef = useRef<ToolType | null>(null);
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
 
@@ -526,16 +524,6 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
     }
     return null;
   }, [annotations, canvasWidth, canvasHeight]);
-
-  // Helper function to calculate distance between two touches
-  const getTouchDistance = useCallback((touches: TouchList | Touch[]) => {
-    if (touches.length < 2) return 0;
-    const touch1 = touches[0];
-    const touch2 = touches[1];
-    const dx = touch1.clientX - touch2.clientX;
-    const dy = touch1.clientY - touch2.clientY;
-    return Math.sqrt(dx * dx + dy * dy);
-  }, []);
 
   // COMPLETELY REWRITTEN: Handle mouse/touch/pointer events
   const handlePointerDown = useCallback(
