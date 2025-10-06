@@ -98,8 +98,11 @@ export const TabManager: React.FC<TabManagerProps> = ({
               active: tab.id === activeTabId,
               'opacity-50': draggedTabIndex === index,
               'border-l-2 border-blue-500': dragOverTabIndex === index && draggedTabIndex !== index,
+              'cursor-move': editingTab !== tab.id,
+              'cursor-default': editingTab === tab.id,
             })}
             onClick={() => onTabChange(tab.id)}
+            title={editingTab !== tab.id ? 'Drag to reorder tabs' : undefined}
           >
             {editingTab === tab.id ? (
               <input
@@ -125,13 +128,13 @@ export const TabManager: React.FC<TabManagerProps> = ({
                   </span>
                   <span className="text-sm text-gray-400">-</span>
                   <div className="overflow-hidden max-w-[150px]">
-                    <span 
+                    <span
                       className={clsx(
                         "text-sm text-white whitespace-nowrap inline-block",
                         hoveredTab === tab.id && "animate-scroll"
                       )}
                     >
-                      {tab.fileName || tab.name}
+                      {tab.name}
                     </span>
                   </div>
                 </div>

@@ -72,13 +72,18 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
   // Update tabs when main file changes
   React.useEffect(() => {
     if (pdfFile && panes.length > 0 && panes[0].tabs.length > 0 && panes[0].tabs[0].file !== pdfFile) {
-      setPanes(prevPanes => prevPanes.map((pane, index) => 
-        index === 0 
+      setPanes(prevPanes => prevPanes.map((pane, index) =>
+        index === 0
           ? {
               ...pane,
-              tabs: pane.tabs.map((tab, tabIndex) => 
-                tabIndex === 0 
-                  ? { ...tab, file: pdfFile, fileName: pdfFile.name }
+              tabs: pane.tabs.map((tab, tabIndex) =>
+                tabIndex === 0
+                  ? {
+                      ...tab,
+                      file: pdfFile,
+                      fileName: pdfFile.name,
+                      name: pdfFile.name.replace('.pdf', '').slice(0, 20)
+                    }
                   : tab
               )
             }
@@ -249,7 +254,9 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
       
       // Create base tab with copied properties
       const newTabBase = {
-        name: `Tab ${clickedPane.tabs.length + 1}`,
+        name: activeTab.fileName
+          ? activeTab.fileName.replace('.pdf', '').slice(0, 20)
+          : `Tab ${clickedPane.tabs.length + 1}`,
         file: activeTab.file,
         fileName: activeTab.fileName,
         currentPage: activeTab.currentPage,
@@ -322,19 +329,32 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
   }, []);
 
   const handleTabRename = useCallback((paneId: string, tabId: string, newName: string) => {
-    setPanes(prevPanes => prevPanes.map(pane => {
-      if (pane.id === paneId) {
-        return {
-          ...pane,
-          tabs: pane.tabs.map(tab =>
-            tab.id === tabId
-              ? { ...tab, name: newName }
-              : tab
-          ),
-        };
+    setPanes(prevPanes => {
+      // Find the tab being renamed to get its fileName and index position
+      let targetFileName: string | undefined;
+      let targetTabIndex: number = -1;
+
+      for (const pane of prevPanes) {
+        const tabIndex = pane.tabs.findIndex(t => t.id === tabId);
+        if (tabIndex !== -1) {
+          targetFileName = pane.tabs[tabIndex].fileName;
+          targetTabIndex = tabIndex;
+          break;
+        }
       }
-      return pane;
-    }));
+
+      if (targetTabIndex === -1) return prevPanes; // Tab not found
+
+      // Update tabs at the same index position with the same fileName across all panes
+      return prevPanes.map(pane => ({
+        ...pane,
+        tabs: pane.tabs.map((tab, index) =>
+          index === targetTabIndex && tab.fileName === targetFileName
+            ? { ...tab, name: newName }
+            : tab
+        ),
+      }));
+    });
   }, []);
 
   const handleTabReorder = useCallback((paneId: string, fromIndex: number, toIndex: number) => {
