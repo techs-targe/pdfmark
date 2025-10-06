@@ -328,7 +328,7 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
     ));
   }, []);
 
-  const handleTabRename = useCallback((paneId: string, tabId: string, newName: string) => {
+  const handleTabRename = useCallback((_paneId: string, tabId: string, newName: string) => {
     setPanes(prevPanes => {
       // Find the tab being renamed to get its fileName and index position
       let targetFileName: string | undefined;
