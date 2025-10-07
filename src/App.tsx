@@ -842,7 +842,7 @@ function App() {
       />
 
       {/* Window Manager - handles all views with tabs */}
-      <div className="flex-1 overflow-hidden">
+      <div className={`flex-1 overflow-hidden ${isFullscreen ? 'pt-12' : ''}`}>
         <WindowManager
           ref={windowManagerRef}
           layout={windowLayout}
