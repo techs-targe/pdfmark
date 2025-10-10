@@ -19,6 +19,7 @@ interface SimplePDFViewerProps {
     eraserSize: number;
   };
   scrollPosition?: { x: number; y: number };
+  showScrollbars?: boolean;
   onPageChange: (page: number) => void;
   onDocumentLoad: (doc: PDFDocumentProxy) => void;
   onAnnotationAdd: (annotation: Annotation) => void;
@@ -37,6 +38,7 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
   currentTool,
   toolSettings,
   scrollPosition,
+  showScrollbars = false,
   onPageChange,
   onDocumentLoad,
   onAnnotationAdd,
@@ -606,9 +608,9 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
 
   return (
     <div className="relative w-full h-full">
-      <div 
-        ref={containerRef} 
-        className="w-full h-full overflow-auto bg-pdf-bg"
+      <div
+        ref={containerRef}
+        className={`w-full h-full overflow-auto bg-pdf-bg ${showScrollbars ? 'custom-scrollbars' : ''}`}
         style={{ cursor: (currentTool === 'select' && !isPanning) || isRightClickPanning ? (isPanning || isRightClickPanning ? 'grabbing' : 'grab') : 'default' }}
         onContextMenu={(e) => {
           e.preventDefault();

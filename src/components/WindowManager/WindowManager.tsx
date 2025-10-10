@@ -835,6 +835,7 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
                 currentPage={activeTab.currentPage}
                 zoomLevel={activeTab.zoomLevel}
                 scrollPosition={activeTab.scrollPosition}
+                showScrollbars={pane.showScrollbars}
                 annotations={pageAnnotations}
                 currentTool={toolSettings.currentTool}
                 toolSettings={toolSettings}
