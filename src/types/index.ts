@@ -79,6 +79,7 @@ export interface WindowPane {
   id: string;
   tabs: Tab[];
   activeTabId: string;
+  showScrollbars?: boolean;
   position?: {
     x: number;
     y: number;

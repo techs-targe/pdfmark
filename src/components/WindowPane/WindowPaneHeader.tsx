@@ -15,9 +15,8 @@ interface WindowPaneHeaderProps {
   onLoadAnnotations?: () => void;
   pageInputRef?: (ref: HTMLInputElement | null) => void;
   paneId?: string;
-  onPanStart?: () => void;
-  onPanMove?: (deltaX: number, deltaY: number) => void;
-  onPanEnd?: () => void;
+  onScrollbarsToggle?: () => void;
+  showScrollbars?: boolean;
   isMaximized?: boolean;
   onMaximizeToggle?: () => void;
 }
@@ -35,9 +34,8 @@ export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
   onLoadAnnotations,
   pageInputRef,
   paneId,
-  onPanStart,
-  onPanMove,
-  onPanEnd,
+  onScrollbarsToggle,
+  showScrollbars = false,
   isMaximized = false,
   onMaximizeToggle,
 }) => {
@@ -46,10 +44,6 @@ export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
   const [showZoomSlider, setShowZoomSlider] = useState(false);
   const [showFileSelector, setShowFileSelector] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Pan gesture state
-  const [isPanning, setIsPanning] = useState(false);
-  const panStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const handlePageJump = useCallback(() => {
     const pageNum = parseInt(pageJumpValue);
@@ -95,61 +89,6 @@ export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
     const zoom = percent / 100;
     onZoomChange(zoom);
   }, [onZoomChange]);
-
-  // Pan gesture handlers
-  const handlePanPointerDown = useCallback((e: React.PointerEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    panStartRef.current = {
-      x: e.clientX,
-      y: e.clientY
-    };
-    setIsPanning(true);
-    if (onPanStart) onPanStart();
-  }, [onPanStart]);
-
-  const handlePanPointerMove = useCallback((e: React.PointerEvent) => {
-    if (!isPanning || !panStartRef.current || !onPanMove) return;
-
-    const deltaX = panStartRef.current.x - e.clientX;
-    const deltaY = panStartRef.current.y - e.clientY;
-
-    onPanMove(deltaX, deltaY);
-
-    panStartRef.current = {
-      x: e.clientX,
-      y: e.clientY
-    };
-  }, [isPanning, onPanMove]);
-
-  const handlePanPointerUp = useCallback(() => {
-    setIsPanning(false);
-    panStartRef.current = null;
-    if (onPanEnd) onPanEnd();
-  }, [onPanEnd]);
-
-  // Global pointer move/up listeners for pan gesture
-  React.useEffect(() => {
-    if (isPanning) {
-      const handleMove = (e: PointerEvent) => {
-        const syntheticEvent = {
-          clientX: e.clientX,
-          clientY: e.clientY,
-        } as React.PointerEvent;
-        handlePanPointerMove(syntheticEvent);
-      };
-      const handleUp = () => handlePanPointerUp();
-
-      window.addEventListener('pointermove', handleMove);
-      window.addEventListener('pointerup', handleUp);
-
-      return () => {
-        window.removeEventListener('pointermove', handleMove);
-        window.removeEventListener('pointerup', handleUp);
-      };
-    }
-  }, [isPanning, handlePanPointerMove, handlePanPointerUp]);
 
   return (
     <>
@@ -365,14 +304,16 @@ export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
           </button>
         </div>
 
-        {/* Pan (move) button */}
-        {onPanMove && (
+        {/* Scrollbars toggle button */}
+        {onScrollbarsToggle && (
           <button
-            onPointerDown={handlePanPointerDown}
-            className="px-1 py-0.5 hover:bg-gray-700 rounded text-xs select-none"
-            title="Drag to pan view"
+            onClick={onScrollbarsToggle}
+            className={`px-1 py-0.5 hover:bg-gray-700 rounded text-xs ${
+              showScrollbars ? 'bg-blue-600' : ''
+            }`}
+            title="Toggle scrollbars"
           >
-            ✋
+            ⊞
           </button>
         )}
 
@@ -390,7 +331,7 @@ export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
       </div>
     </div>
 
-    {/* Zoom slider on window right edge */}
+    {/* Zoom slider on window right edge (positioned relative to parent container) */}
     {showZoomSlider && paneId && (
       <>
         <div
@@ -398,8 +339,9 @@ export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
           onClick={() => setShowZoomSlider(false)}
         />
         <div
-          className="fixed right-0 top-1/2 -translate-y-1/2 bg-gray-700 border border-gray-600 rounded shadow-lg z-50 p-3 flex flex-col items-center gap-2"
+          className="absolute right-2 top-1/2 -translate-y-1/2 bg-gray-700 border border-gray-600 rounded shadow-lg z-50 p-3 flex flex-col items-center gap-2"
           style={{ width: '60px' }}
+          id={`zoom-slider-${paneId}`}
         >
           {/* Min label (5%) - at top */}
           <div className="text-xs text-gray-300 font-mono">5%</div>

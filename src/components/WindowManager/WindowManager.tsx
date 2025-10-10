@@ -628,6 +628,15 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
     };
   }, []);
 
+  // Handle scrollbars toggle for a specific pane
+  const handleScrollbarsToggle = useCallback((paneId: string) => {
+    setPanes(prevPanes => prevPanes.map(pane =>
+      pane.id === paneId
+        ? { ...pane, showScrollbars: !pane.showScrollbars }
+        : pane
+    ));
+  }, []);
+
   // Render single pane
   const renderPane = (pane: WindowPane, isActive: boolean) => {
     const activeTab = pane.tabs.find(t => t.id === pane.activeTabId) || pane.tabs[0];
@@ -640,7 +649,7 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
     return (
       <div
         key={pane.id}
-        className={`flex flex-col h-full ${isActive ? 'ring-2 ring-blue-500' : ''}`}
+        className={`flex flex-col h-full relative ${isActive ? 'ring-2 ring-blue-500' : ''}`}
         onClick={() => setActivePaneId(pane.id)}
       >
         <TabManager
@@ -664,13 +673,8 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
           onLoadAnnotations={onLoadAnnotations}
           pageInputRef={(ref) => pageInputRefs.current.set(pane.id, ref)}
           paneId={pane.id}
-          onPanMove={(deltaX, deltaY) => {
-            const viewerKey = `${pane.id}_${activeTab.id}`;
-            const viewer = pdfViewerRefs.current.get(viewerKey);
-            if (viewer?.containerRef?.current) {
-              viewer.containerRef.current.scrollBy(deltaX, deltaY);
-            }
-          }}
+          onScrollbarsToggle={() => handleScrollbarsToggle(pane.id)}
+          showScrollbars={pane.showScrollbars || false}
           isMaximized={maximizedPaneId === pane.id}
           onMaximizeToggle={() => {
             setMaximizedPaneId(prev => prev === pane.id ? null : pane.id);
