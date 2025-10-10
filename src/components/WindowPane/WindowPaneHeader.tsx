@@ -331,7 +331,7 @@ export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
       </div>
     </div>
 
-    {/* Zoom slider on window right edge (positioned relative to parent container) */}
+    {/* Zoom slider on window left edge (positioned relative to parent container) */}
     {showZoomSlider && paneId && (
       <>
         <div
@@ -339,7 +339,7 @@ export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
           onClick={() => setShowZoomSlider(false)}
         />
         <div
-          className="absolute right-2 top-1/2 -translate-y-1/2 bg-gray-700 border border-gray-600 rounded shadow-lg z-50 p-3 flex flex-col items-center gap-2"
+          className="absolute left-2 top-1/2 -translate-y-1/2 bg-gray-700 border border-gray-600 rounded shadow-lg z-50 p-3 flex flex-col items-center gap-2"
           style={{ width: '60px' }}
           id={`zoom-slider-${paneId}`}
         >
