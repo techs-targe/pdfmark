@@ -1,11 +1,11 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { Tab } from '../../types';
-import { ZOOM_PRESETS } from '../../types';
 import { isPDFFile } from '../../utils/helpers';
 
 interface WindowPaneHeaderProps {
   activeTab: Tab;
   totalPages?: number;
+  actualScale?: number; // Actual calculated zoom scale for fit-width/fit-page modes
   loadedFiles?: File[];
   onPageChange: (page: number) => void;
   onZoomChange: (zoom: number | 'fit-width' | 'fit-page') => void;
@@ -15,11 +15,17 @@ interface WindowPaneHeaderProps {
   onLoadAnnotations?: () => void;
   pageInputRef?: (ref: HTMLInputElement | null) => void;
   paneId?: string;
+  onPanStart?: () => void;
+  onPanMove?: (deltaX: number, deltaY: number) => void;
+  onPanEnd?: () => void;
+  isMaximized?: boolean;
+  onMaximizeToggle?: () => void;
 }
 
 export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
   activeTab,
   totalPages = 0,
+  actualScale = 1,
   loadedFiles = [],
   onPageChange,
   onZoomChange,
@@ -29,14 +35,21 @@ export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
   onLoadAnnotations,
   pageInputRef,
   paneId,
+  onPanStart,
+  onPanMove,
+  onPanEnd,
+  isMaximized = false,
+  onMaximizeToggle,
 }) => {
   const [showPageJump, setShowPageJump] = useState(false);
   const [pageJumpValue, setPageJumpValue] = useState('');
-  const [showZoomMenu, setShowZoomMenu] = useState(false);
+  const [showZoomSlider, setShowZoomSlider] = useState(false);
   const [showFileSelector, setShowFileSelector] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const zoomButtonRef = useRef<HTMLButtonElement>(null);
-  const [zoomMenuPosition, setZoomMenuPosition] = useState({ top: 0, left: 0 });
+
+  // Pan gesture state
+  const [isPanning, setIsPanning] = useState(false);
+  const panStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const handlePageJump = useCallback(() => {
     const pageNum = parseInt(pageJumpValue);
@@ -78,6 +91,77 @@ export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
       onLoadAnnotations();
     }
   }, [onLoadAnnotations]);
+
+  // Get current zoom as percentage (5-800)
+  const getCurrentZoomPercent = useCallback(() => {
+    if (typeof activeTab.zoomLevel === 'number') {
+      return Math.round(activeTab.zoomLevel * 100);
+    }
+    // For fit-width and fit-page, use actualScale
+    return Math.round(actualScale * 100);
+  }, [activeTab.zoomLevel, actualScale]);
+
+  // Handle zoom slider change
+  const handleZoomSliderChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const percent = parseInt(e.target.value);
+    const zoom = percent / 100;
+    onZoomChange(zoom);
+  }, [onZoomChange]);
+
+  // Pan gesture handlers
+  const handlePanPointerDown = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    panStartRef.current = {
+      x: e.clientX,
+      y: e.clientY
+    };
+    setIsPanning(true);
+    if (onPanStart) onPanStart();
+  }, [onPanStart]);
+
+  const handlePanPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!isPanning || !panStartRef.current || !onPanMove) return;
+
+    const deltaX = panStartRef.current.x - e.clientX;
+    const deltaY = panStartRef.current.y - e.clientY;
+
+    onPanMove(deltaX, deltaY);
+
+    panStartRef.current = {
+      x: e.clientX,
+      y: e.clientY
+    };
+  }, [isPanning, onPanMove]);
+
+  const handlePanPointerUp = useCallback(() => {
+    setIsPanning(false);
+    panStartRef.current = null;
+    if (onPanEnd) onPanEnd();
+  }, [onPanEnd]);
+
+  // Global pointer move/up listeners for pan gesture
+  React.useEffect(() => {
+    if (isPanning) {
+      const handleMove = (e: PointerEvent) => {
+        const syntheticEvent = {
+          clientX: e.clientX,
+          clientY: e.clientY,
+        } as React.PointerEvent;
+        handlePanPointerMove(syntheticEvent);
+      };
+      const handleUp = () => handlePanPointerUp();
+
+      window.addEventListener('pointermove', handleMove);
+      window.addEventListener('pointerup', handleUp);
+
+      return () => {
+        window.removeEventListener('pointermove', handleMove);
+        window.removeEventListener('pointerup', handleUp);
+      };
+    }
+  }, [isPanning, handlePanPointerMove, handlePanPointerUp]);
 
   return (
     <>
@@ -206,15 +290,6 @@ export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
       <div className="flex items-center gap-3">
         {/* Page controls */}
         <div className="flex items-center gap-1">
-          <button
-            onClick={handlePrevPage}
-            disabled={activeTab.currentPage <= 1}
-            className="px-1 py-0.5 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed rounded text-xs"
-            title="Previous Page"
-          >
-            ◀
-          </button>
-          
           <div className="relative">
             {showPageJump ? (
               <div className="flex items-center gap-1">
@@ -259,75 +334,112 @@ export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
               </button>
             )}
           </div>
-          
+
           <span className="text-gray-400">/</span>
           <span className="text-gray-300">{totalPages}</span>
-          
-          <button
-            onClick={handleNextPage}
-            disabled={activeTab.currentPage >= totalPages}
-            className="px-1 py-0.5 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed rounded text-xs"
-            title="Next Page"
-          >
-            ▶
-          </button>
         </div>
 
-        {/* Zoom control */}
-        <div className="relative">
+        {/* Zoom controls */}
+        <div className="flex items-center gap-1">
+          {/* Zoom percentage button */}
           <button
-            ref={zoomButtonRef}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (zoomButtonRef.current) {
-                const rect = zoomButtonRef.current.getBoundingClientRect();
-                setZoomMenuPosition({
-                  top: rect.bottom + 5,
-                  left: rect.left
-                });
-              }
-              setShowZoomMenu(!showZoomMenu);
-            }}
+            onClick={() => setShowZoomSlider(!showZoomSlider)}
             className="px-2 py-0.5 hover:bg-gray-700 rounded text-xs min-w-16"
-            title="Zoom Level"
+            title="Click to show zoom slider"
           >
             {typeof activeTab.zoomLevel === 'number'
               ? `${Math.round(activeTab.zoomLevel * 100)}%`
               : activeTab.zoomLevel === 'fit-width'
               ? 'Fit W'
               : 'Fit P'}
-            ▼
+          </button>
+
+          {/* Page fit button */}
+          <button
+            onClick={() => onZoomChange('fit-page')}
+            className={`px-1 py-0.5 hover:bg-gray-700 rounded text-xs ${
+              activeTab.zoomLevel === 'fit-page' ? 'bg-blue-600' : ''
+            }`}
+            title="Fit page"
+          >
+            ⊡
+          </button>
+
+          {/* Width fit button */}
+          <button
+            onClick={() => onZoomChange('fit-width')}
+            className={`px-1 py-0.5 hover:bg-gray-700 rounded text-xs ${
+              activeTab.zoomLevel === 'fit-width' ? 'bg-blue-600' : ''
+            }`}
+            title="Fit width"
+          >
+            ⬌
           </button>
         </div>
+
+        {/* Pan (move) button */}
+        {onPanMove && (
+          <button
+            onPointerDown={handlePanPointerDown}
+            className="px-1 py-0.5 hover:bg-gray-700 rounded text-xs select-none"
+            title="Drag to pan view"
+          >
+            ✋
+          </button>
+        )}
+
+        {/* Maximize button */}
+        {onMaximizeToggle && (
+          <button
+            onClick={onMaximizeToggle}
+            className="px-1 py-0.5 hover:bg-gray-700 rounded text-xs"
+            title={isMaximized ? "Restore window" : "Maximize window"}
+          >
+            {isMaximized ? '🗗' : '🗖'}
+          </button>
+        )}
       </div>
       </div>
     </div>
-    
-    {/* Zoom menu outside of scrollable container */}
-    {showZoomMenu && (
+
+    {/* Zoom slider on window right edge */}
+    {showZoomSlider && paneId && (
       <>
-        <div 
-          className="fixed inset-0 z-40" 
-          onClick={() => setShowZoomMenu(false)}
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setShowZoomSlider(false)}
         />
-        <div className="fixed bg-gray-700 border border-gray-600 rounded shadow-lg z-50 min-w-24"
-          style={{
-            top: `${zoomMenuPosition.top}px`,
-            left: `${zoomMenuPosition.left}px`
-          }}
+        <div
+          className="fixed right-0 top-1/2 -translate-y-1/2 bg-gray-700 border border-gray-600 rounded shadow-lg z-50 p-3 flex flex-col items-center gap-2"
+          style={{ width: '60px' }}
         >
-          {ZOOM_PRESETS.map((preset) => (
-            <button
-              key={preset.label}
-              onClick={() => {
-                onZoomChange(preset.value);
-                setShowZoomMenu(false);
+          {/* Min label (5%) - at top */}
+          <div className="text-xs text-gray-300 font-mono">5%</div>
+
+          {/* Vertical slider (rotated and flipped) */}
+          <div className="relative h-64 flex items-center justify-center">
+            <input
+              type="range"
+              min="5"
+              max="800"
+              value={getCurrentZoomPercent()}
+              onChange={handleZoomSliderChange}
+              className="absolute vertical-slider"
+              style={{
+                width: '256px', // height of slider in rotated state
+                transform: 'rotate(-90deg) scaleX(-1)', // Rotate and flip to make top=max, bottom=min
+                transformOrigin: 'center',
               }}
-              className="block w-full px-2 py-1 text-left hover:bg-gray-600 text-xs text-white first:rounded-t last:rounded-b"
-            >
-              {preset.label}
-            </button>
-          ))}
+            />
+          </div>
+
+          {/* Max label (800%) - at bottom */}
+          <div className="text-xs text-gray-300 font-mono">800%</div>
+
+          {/* Current zoom value */}
+          <div className="text-sm text-white font-bold mt-2">
+            {getCurrentZoomPercent()}%
+          </div>
         </div>
       </>
     )}

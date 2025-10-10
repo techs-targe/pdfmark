@@ -69,9 +69,10 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
     }
   }, [pdfFile?.name, panes[0]?.tabs[0]?.file?.name]);
   
-  // Update tabs when main file changes
+  // Update tabs when main file changes - ONLY if the first tab is empty
   React.useEffect(() => {
-    if (pdfFile && panes.length > 0 && panes[0].tabs.length > 0 && panes[0].tabs[0].file !== pdfFile) {
+    if (pdfFile && panes.length > 0 && panes[0].tabs.length > 0 && !panes[0].tabs[0].file) {
+      // Only update the first tab if it doesn't have a file yet
       setPanes(prevPanes => prevPanes.map((pane, index) =>
         index === 0
           ? {
@@ -92,7 +93,10 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
     }
   }, [pdfFile]); // Only depend on pdfFile
   const [activePaneId, setActivePaneId] = useState('pane_1');
-  
+
+  // Maximized pane state
+  const [maximizedPaneId, setMaximizedPaneId] = useState<string | null>(null);
+
   // Split ratio state (0.1 to 0.9, default 0.5 = 50/50 split)
   const [splitRatio, setSplitRatio] = useState(0.5);
   const [splitRatioH, setSplitRatioH] = useState(0.5); // Horizontal split for tile mode
@@ -627,9 +631,14 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
   // Render single pane
   const renderPane = (pane: WindowPane, isActive: boolean) => {
     const activeTab = pane.tabs.find(t => t.id === pane.activeTabId) || pane.tabs[0];
-    
+
+    // Get actual scale from PDF viewer
+    const viewerKey = `${pane.id}_${activeTab.id}`;
+    const viewer = pdfViewerRefs.current.get(viewerKey);
+    const actualScale = viewer?.actualScale || 1;
+
     return (
-      <div 
+      <div
         key={pane.id}
         className={`flex flex-col h-full ${isActive ? 'ring-2 ring-blue-500' : ''}`}
         onClick={() => setActivePaneId(pane.id)}
@@ -643,10 +652,11 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
           onTabRename={(tabId, newName) => handleTabRename(pane.id, tabId, newName)}
           onTabReorder={(fromIndex, toIndex) => handleTabReorder(pane.id, fromIndex, toIndex)}
         />
-        
+
         <WindowPaneHeader
           activeTab={activeTab}
           totalPages={pdfDoc?.numPages}
+          actualScale={actualScale}
           loadedFiles={loadedFiles}
           onPageChange={(page) => handlePageChange(pane.id, activeTab.id, page)}
           onZoomChange={(zoom) => handleZoomChange(pane.id, activeTab.id, zoom)}
@@ -654,6 +664,17 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
           onLoadAnnotations={onLoadAnnotations}
           pageInputRef={(ref) => pageInputRefs.current.set(pane.id, ref)}
           paneId={pane.id}
+          onPanMove={(deltaX, deltaY) => {
+            const viewerKey = `${pane.id}_${activeTab.id}`;
+            const viewer = pdfViewerRefs.current.get(viewerKey);
+            if (viewer?.containerRef?.current) {
+              viewer.containerRef.current.scrollBy(deltaX, deltaY);
+            }
+          }}
+          isMaximized={maximizedPaneId === pane.id}
+          onMaximizeToggle={() => {
+            setMaximizedPaneId(prev => prev === pane.id ? null : pane.id);
+          }}
           onFileOpenInNewTab={(file) => {
             // Always create a new tab when selecting from loaded files
             const timestamp = Date.now();
@@ -732,10 +753,21 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
                   };
                 }
 
-                // Check tab limit
-                if (p.tabs.length >= 10) {
+                // Remove empty tabs (tabs without file) before adding new file
+                const tabsWithoutFile = p.tabs.filter(t => !t.file);
+                let filteredTabs = p.tabs;
+                if (tabsWithoutFile.length > 0) {
+                  console.log(`🪟 Pane ${p.id}: Removing ${tabsWithoutFile.length} empty tab(s) before adding file ${file.name}`);
+                  filteredTabs = p.tabs.filter(t => t.file);
+                }
+
+                // Check tab limit (after removing empty tabs)
+                if (filteredTabs.length >= 10) {
                   console.log(`🪟 Pane ${p.id}: Maximum 10 tabs reached, skipping`);
-                  return p;
+                  return {
+                    ...p,
+                    tabs: filteredTabs.length > 0 ? filteredTabs : p.tabs.slice(0, 10)
+                  };
                 }
 
                 // Create unique tab ID for this pane
@@ -747,7 +779,7 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
                 console.log(`🪟 Pane ${p.id}: Creating new tab ${newTab.id} for file ${file.name}`);
                 return {
                   ...p,
-                  tabs: [...p.tabs, newTab],
+                  tabs: [...filteredTabs, newTab],
                   activeTabId: newTab.id,
                 };
               });
@@ -1454,7 +1486,19 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
   return (
     <div className="h-full bg-gray-900 window-manager-container">
       {renderLayout()}
-      
+
+      {/* Maximized pane overlay */}
+      {maximizedPaneId && (() => {
+        const maximizedPane = panes.find(p => p.id === maximizedPaneId);
+        if (!maximizedPane) return null;
+
+        return (
+          <div className="fixed inset-0 z-50 bg-gray-900">
+            {renderPane(maximizedPane, true)}
+          </div>
+        );
+      })()}
+
       {/* Confirm dialog for unsaved changes */}
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}

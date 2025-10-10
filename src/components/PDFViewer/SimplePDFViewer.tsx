@@ -50,6 +50,7 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
   const pdfCanvasRef = useRef<HTMLCanvasElement>(null);
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
   const [pageSize, setPageSize] = useState({ width: 0, height: 0 });
+  const [actualScale, setActualScale] = useState(1); // Track actual calculated scale
   const renderingRef = useRef<boolean>(false);
   const renderTaskRef = useRef<any>(null);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -71,11 +72,12 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
   const [threeFingerPanning, setThreeFingerPanning] = useState(false);
   const [threeFingerPanStart, setThreeFingerPanStart] = useState<{ x: number; y: number } | null>(null);
 
-  // Expose containerRef and totalPages to parent
+  // Expose containerRef, totalPages, and actualScale to parent
   useImperativeHandle(ref, () => ({
     containerRef,
-    totalPages: pdfDoc?.numPages || 0
-  }), [pdfDoc]);
+    totalPages: pdfDoc?.numPages || 0,
+    actualScale: actualScale
+  }), [pdfDoc, actualScale]);
 
   // Load PDF document
   useEffect(() => {
@@ -171,6 +173,7 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
       const page = await pdfDoc.getPage(currentPage);
       const baseViewport = page.getViewport({ scale: 1 });
       const scale = calculateScale({ width: baseViewport.width, height: baseViewport.height });
+      setActualScale(scale); // Save actual calculated scale
       const viewport = page.getViewport({ scale });
 
       const canvas = pdfCanvasRef.current;
