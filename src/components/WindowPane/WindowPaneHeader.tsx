@@ -60,18 +60,6 @@ export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
     }
   }, [pageJumpValue, totalPages, onPageChange]);
 
-  const handlePrevPage = useCallback(() => {
-    if (activeTab.currentPage > 1) {
-      onPageChange(activeTab.currentPage - 1);
-    }
-  }, [activeTab.currentPage, onPageChange]);
-
-  const handleNextPage = useCallback(() => {
-    if (activeTab.currentPage < totalPages) {
-      onPageChange(activeTab.currentPage + 1);
-    }
-  }, [activeTab.currentPage, totalPages, onPageChange]);
-
   const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file && isPDFFile(file) && onFileUpload) {
