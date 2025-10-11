@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import clsx from 'clsx';
+import { APP_INFO } from '../../config/version';
 
 const PRESET_TIMES = [
   { label: '5分', minutes: 5 },
@@ -41,6 +42,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   const [showPresets, setShowPresets] = useState(false);
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [customMinutes, setCustomMinutes] = useState('');
+  const [hasNotified, setHasNotified] = useState(false); // Track if notification shown
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -53,18 +55,21 @@ export const StatusBar: React.FC<StatusBarProps> = ({
     };
   }, []);
 
-  // Timer countdown
+  // Timer countdown - continues into negative numbers
   useEffect(() => {
-    if (isTimerActive && !isPaused && remainingSeconds > 0) {
+    if (isTimerActive && !isPaused) {
       intervalRef.current = setInterval(() => {
         setRemainingSeconds(prev => {
-          if (prev <= 1) {
-            setIsTimerActive(false);
-            setIsPaused(false);
+          const next = prev - 1;
+
+          // Show notification once when crossing zero
+          if (prev === 1 && !hasNotified) {
             showTimeUpNotification();
-            return 0;
+            setHasNotified(true);
           }
-          return prev - 1;
+
+          // Continue counting into negative numbers
+          return next;
         });
       }, 1000);
 
@@ -74,7 +79,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
         }
       };
     }
-  }, [isTimerActive, isPaused, remainingSeconds]);
+  }, [isTimerActive, isPaused, hasNotified]);
 
   const showTimeUpNotification = useCallback(() => {
     // Show popup notification
@@ -94,6 +99,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
     setIsPaused(false);
     setShowPresets(false);
     setShowCustomInput(false);
+    setHasNotified(false); // Reset notification flag
   }, []);
 
   const pauseTimer = useCallback(() => {
@@ -112,6 +118,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
     setIsTimerActive(false);
     setIsPaused(false);
     setRemainingSeconds(0);
+    setHasNotified(false); // Reset notification flag
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
     }
@@ -128,14 +135,19 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   }, [customMinutes, startTimer]);
 
   const formatTime = (seconds: number): string => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
+    const isNegative = seconds < 0;
+    const absSeconds = Math.abs(seconds);
+
+    const hours = Math.floor(absSeconds / 3600);
+    const minutes = Math.floor((absSeconds % 3600) / 60);
+    const secs = absSeconds % 60;
+
+    const prefix = isNegative ? '-' : '';
 
     if (hours > 0) {
-      return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      return `${prefix}${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
     }
-    return `${minutes}:${String(secs).padStart(2, '0')}`;
+    return `${prefix}${minutes}:${String(secs).padStart(2, '0')}`;
   };
 
   return (
@@ -145,27 +157,29 @@ export const StatusBar: React.FC<StatusBarProps> = ({
         <button
           onClick={(e) => {
             e.stopPropagation();
-            if (remainingSeconds === 0) {
+            if (!isTimerActive && remainingSeconds === 0) {
               setShowPresets(!showPresets);
             }
           }}
           className={clsx(
             "flex items-center gap-2 px-3 py-1 rounded transition-colors",
-            isTimerActive && !isPaused
-              ? "bg-blue-600 hover:bg-blue-700"
-              : isPaused
+            isPaused
               ? "bg-yellow-600 hover:bg-yellow-700"
+              : isTimerActive && remainingSeconds < 0
+              ? "bg-red-600 hover:bg-red-700" // Red for overtime
+              : isTimerActive
+              ? "bg-blue-600 hover:bg-blue-700"
               : "bg-gray-700 hover:bg-gray-600"
           )}
           title="タイマーを設定"
         >
           <span>{isPaused ? '⏸️' : '⏱️'}</span>
           <span className="text-white min-w-[60px]">
-            {remainingSeconds > 0 ? formatTime(remainingSeconds) : 'タイマー'}
+            {isTimerActive || remainingSeconds !== 0 ? formatTime(remainingSeconds) : 'タイマー'}
           </span>
         </button>
 
-        {remainingSeconds > 0 && (
+        {isTimerActive && (
           <>
             {isPaused ? (
               <button
@@ -195,7 +209,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
         )}
 
         {/* Preset time selection dropdown */}
-        {showPresets && remainingSeconds === 0 && (
+        {showPresets && !isTimerActive && remainingSeconds === 0 && (
           <div className="absolute bottom-full mb-2 left-0 bg-gray-700 border border-gray-600 rounded-lg shadow-lg p-2 z-50">
             <div className="text-white text-xs font-semibold mb-2 px-2">時間を選択</div>
             <div className="grid grid-cols-2 gap-1 mb-2">
@@ -313,7 +327,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
           </span>
         )}
         <span className="text-gray-400">|</span>
-        <span className="text-gray-400">PDFMark v1.0.3</span>
+        <span className="text-gray-400">{APP_INFO.name} v{APP_INFO.version}</span>
       </div>
     </div>
   );

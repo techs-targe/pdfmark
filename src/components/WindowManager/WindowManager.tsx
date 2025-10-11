@@ -21,6 +21,10 @@ interface WindowManagerProps {
   onFileUpload: (file: File) => void;
   onSaveAnnotations?: () => void;
   onLoadAnnotations?: () => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
   hasUnsavedChanges?: (fileName: string) => boolean;
   markAsSaved?: (fileName: string) => void;
   onToolChange?: (tool: ToolType) => void;
@@ -40,6 +44,10 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
   onFileUpload,
   onSaveAnnotations,
   onLoadAnnotations,
+  onUndo,
+  onRedo,
+  canUndo = false,
+  canRedo = false,
   hasUnsavedChanges,
   markAsSaved: _markAsSaved,  // Currently unused
   onToolChange,
@@ -630,11 +638,18 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
 
   // Handle scrollbars toggle for a specific pane
   const handleScrollbarsToggle = useCallback((paneId: string) => {
-    setPanes(prevPanes => prevPanes.map(pane =>
-      pane.id === paneId
-        ? { ...pane, showScrollbars: !pane.showScrollbars }
-        : pane
-    ));
+    console.log('🟢 WindowManager: handleScrollbarsToggle called for pane:', paneId);
+    setPanes(prevPanes => {
+      const updated = prevPanes.map(pane => {
+        if (pane.id === paneId) {
+          const newValue = !pane.showScrollbars;
+          console.log(`🟢 WindowManager: Pane ${pane.id} showScrollbars: ${pane.showScrollbars} → ${newValue}`);
+          return { ...pane, showScrollbars: newValue };
+        }
+        return pane;
+      });
+      return updated;
+    });
   }, []);
 
   // Render single pane
@@ -671,6 +686,10 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
           onZoomChange={(zoom) => handleZoomChange(pane.id, activeTab.id, zoom)}
           onSaveAnnotations={onSaveAnnotations}
           onLoadAnnotations={onLoadAnnotations}
+          onUndo={onUndo}
+          onRedo={onRedo}
+          canUndo={canUndo}
+          canRedo={canRedo}
           pageInputRef={(ref) => pageInputRefs.current.set(pane.id, ref)}
           paneId={pane.id}
           onScrollbarsToggle={() => handleScrollbarsToggle(pane.id)}

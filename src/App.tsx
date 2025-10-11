@@ -853,6 +853,10 @@ function App() {
           onLayoutChange={setWindowLayout}
           onSaveAnnotations={handleSave}
           onLoadAnnotations={handleLoad}
+          onUndo={undo}
+          onRedo={redo}
+          canUndo={canUndo}
+          canRedo={canRedo}
           onAnnotationAdd={(fileName, annotation) => {
             if (fileName) {
               globalAddAnnotation(fileName, annotation.pageNumber, annotation);

@@ -13,6 +13,10 @@ interface WindowPaneHeaderProps {
   onFileOpenInNewTab?: (file: File) => void;
   onSaveAnnotations?: () => void;
   onLoadAnnotations?: () => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
   pageInputRef?: (ref: HTMLInputElement | null) => void;
   paneId?: string;
   onScrollbarsToggle?: () => void;
@@ -32,6 +36,10 @@ export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
   onFileOpenInNewTab,
   onSaveAnnotations,
   onLoadAnnotations,
+  onUndo,
+  onRedo,
+  canUndo = false,
+  canRedo = false,
   pageInputRef,
   paneId,
   onScrollbarsToggle,
@@ -39,20 +47,9 @@ export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
   isMaximized = false,
   onMaximizeToggle,
 }) => {
-  const [showPageJump, setShowPageJump] = useState(false);
-  const [pageJumpValue, setPageJumpValue] = useState('');
   const [showZoomSlider, setShowZoomSlider] = useState(false);
   const [showFileSelector, setShowFileSelector] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handlePageJump = useCallback(() => {
-    const pageNum = parseInt(pageJumpValue);
-    if (pageNum >= 1 && pageNum <= totalPages) {
-      onPageChange(pageNum);
-      setShowPageJump(false);
-      setPageJumpValue('');
-    }
-  }, [pageJumpValue, totalPages, onPageChange]);
 
   const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -102,11 +99,8 @@ export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
         className="hidden"
       />
       
-      {/* Left side - Tab and File info */}
+      {/* Left side - File controls */}
       <div className="flex items-center gap-3">
-        <span className="font-medium text-blue-400">
-          {activeTab.name}
-        </span>
         {onFileUpload && (
           <>
             <button
@@ -203,6 +197,31 @@ export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
             📥
           </button>
         )}
+        {/* Undo/Redo buttons */}
+        {onUndo && (
+          <button
+            onClick={onUndo}
+            disabled={!canUndo}
+            className={`px-1 py-0.5 rounded text-xs ${
+              canUndo ? 'hover:bg-gray-700' : 'opacity-30 cursor-not-allowed'
+            }`}
+            title="Undo (Ctrl+Z)"
+          >
+            ↶
+          </button>
+        )}
+        {onRedo && (
+          <button
+            onClick={onRedo}
+            disabled={!canRedo}
+            className={`px-1 py-0.5 rounded text-xs ${
+              canRedo ? 'hover:bg-gray-700' : 'opacity-30 cursor-not-allowed'
+            }`}
+            title="Redo (Ctrl+Y)"
+          >
+            ↷
+          </button>
+        )}
         {activeTab.fileName && (
           <>
             <span className="text-gray-400">•</span>
@@ -213,59 +232,8 @@ export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
         )}
       </div>
 
-      {/* Right side - Page and Zoom controls */}
+      {/* Right side - Zoom controls */}
       <div className="flex items-center gap-3">
-        {/* Page controls */}
-        <div className="flex items-center gap-1">
-          <div className="relative">
-            {showPageJump ? (
-              <div className="flex items-center gap-1">
-                <input
-                  ref={pageInputRef}
-                  type="number"
-                  value={pageJumpValue}
-                  onChange={(e) => setPageJumpValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handlePageJump();
-                    if (e.key === 'Escape') {
-                      setShowPageJump(false);
-                      setPageJumpValue('');
-                    }
-                  }}
-                  onBlur={() => {
-                    setTimeout(() => {
-                      setShowPageJump(false);
-                      setPageJumpValue('');
-                    }, 200);
-                  }}
-                  className="w-12 px-1 py-0.5 bg-gray-700 border border-gray-500 rounded text-center text-xs"
-                  placeholder={activeTab.currentPage.toString()}
-                  min="1"
-                  max={totalPages}
-                  autoFocus
-                />
-                <button
-                  onClick={handlePageJump}
-                  className="px-1 py-0.5 bg-blue-600 hover:bg-blue-700 rounded text-xs"
-                >
-                  Go
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setShowPageJump(true)}
-                className={`px-1 py-0.5 hover:bg-gray-700 rounded text-xs min-w-12 ${paneId ? `page-jump-button-${paneId}` : ''}`}
-                title="Click to jump to page"
-              >
-                {activeTab.currentPage}
-              </button>
-            )}
-          </div>
-
-          <span className="text-gray-400">/</span>
-          <span className="text-gray-300">{totalPages}</span>
-        </div>
-
         {/* Zoom controls */}
         <div className="flex items-center gap-1">
           {/* Zoom percentage button */}
@@ -307,7 +275,10 @@ export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
         {/* Scrollbars toggle button */}
         {onScrollbarsToggle && (
           <button
-            onClick={onScrollbarsToggle}
+            onClick={() => {
+              console.log('🔵 WindowPaneHeader: Scrollbars button clicked! Current state:', showScrollbars);
+              onScrollbarsToggle();
+            }}
             className={`px-1 py-0.5 hover:bg-gray-700 rounded text-xs ${
               showScrollbars ? 'bg-blue-600' : ''
             }`}

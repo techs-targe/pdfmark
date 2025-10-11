@@ -1,7 +1,8 @@
-import { useRef, useEffect, useState, useCallback, memo, forwardRef, useImperativeHandle } from 'react';
+import React, { useRef, useEffect, useState, useCallback, memo, forwardRef, useImperativeHandle } from 'react';
 import { PDFDocumentProxy } from 'pdfjs-dist';
 import { pdfjsLib, PDF_LOAD_PARAMS } from '../../utils/pdfjs-init';
 import { AnnotationLayer } from '../AnnotationLayer/AnnotationLayer';
+import { ScrollSlider } from '../ScrollSlider/ScrollSlider';
 import { Annotation, ToolType } from '../../types';
 import { APP_INFO } from '../../config/version';
 import { isAnyDrawingToolActive } from '../../utils/penDetection';
@@ -606,12 +607,22 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
     );
   }
 
+  // Debug logging for scrollbars
+  React.useEffect(() => {
+    console.log('🔍 SimplePDFViewer: showScrollbars =', showScrollbars);
+    if (containerRef.current) {
+      console.log('🔍 SimplePDFViewer: container classes =', containerRef.current.className);
+    }
+  }, [showScrollbars]);
+
   return (
     <div className="relative w-full h-full">
       <div
         ref={containerRef}
-        className={`w-full h-full overflow-auto bg-pdf-bg ${showScrollbars ? 'custom-scrollbars' : ''}`}
-        style={{ cursor: (currentTool === 'select' && !isPanning) || isRightClickPanning ? (isPanning || isRightClickPanning ? 'grabbing' : 'grab') : 'default' }}
+        className={`w-full h-full bg-pdf-bg overflow-auto ${showScrollbars ? 'hide-scrollbars' : ''}`}
+        style={{
+          cursor: (currentTool === 'select' && !isPanning) || isRightClickPanning ? (isPanning || isRightClickPanning ? 'grabbing' : 'grab') : 'default'
+        }}
         onContextMenu={(e) => {
           e.preventDefault();
 
@@ -642,7 +653,17 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
         onTouchEnd={handleTouchEnd}
       >
       {/* Content wrapper with proper centering */}
-      <div className="flex min-h-full" style={{ padding: typeof zoomLevel === 'number' && zoomLevel > 2 ? '100px' : '24px' }}>
+      <div
+        className="flex min-h-full"
+        style={{
+          padding: typeof zoomLevel === 'number' && zoomLevel > 2 ? '100px' : '24px',
+          // Add extra padding when scrollbars are enabled to ensure overflow
+          ...(showScrollbars ? {
+            paddingRight: typeof zoomLevel === 'number' && zoomLevel > 2 ? '150px' : '74px',
+            paddingBottom: typeof zoomLevel === 'number' && zoomLevel > 2 ? '150px' : '74px'
+          } : {})
+        }}
+      >
         <div className="relative inline-block">
           {/* PDF Canvas */}
           <canvas
@@ -674,7 +695,13 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
     </div>
 
     {/* Page navigation - fixed within parent, mobile-friendly */}
-    <div className="absolute bottom-4 right-4 left-4 flex justify-end gap-2 z-30 pointer-events-none">
+    <div
+      className="absolute left-4 flex justify-end gap-2 z-30 pointer-events-none transition-all duration-200"
+      style={{
+        bottom: showScrollbars ? '54px' : '16px',
+        right: showScrollbars ? '54px' : '16px'
+      }}
+    >
       <div className="flex gap-2 pointer-events-auto bg-white/90 backdrop-blur-sm rounded-lg p-2 shadow-lg">
         <button
           onClick={() => goToPage(currentPage - 1)}
@@ -727,6 +754,10 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
         </button>
       </div>
     </div>
+
+    {/* Custom scroll sliders */}
+    <ScrollSlider containerRef={containerRef} orientation="vertical" show={showScrollbars} />
+    <ScrollSlider containerRef={containerRef} orientation="horizontal" show={showScrollbars} />
     </div>
   );
 }));
