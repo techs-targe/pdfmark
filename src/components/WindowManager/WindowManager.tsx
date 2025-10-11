@@ -768,11 +768,11 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
                 // Check if we already have this file open in this pane
                 const existingTab = p.tabs.find(t => t.fileName === file.name);
                 if (existingTab) {
-                  // Switch to existing tab
+                  // Switch to existing tab ONLY in the pane that opened the file
                   console.log(`🪟 Pane ${p.id}: File already open in tab ${existingTab.id}, switching to it`);
                   return {
                     ...p,
-                    activeTabId: existingTab.id
+                    activeTabId: p.id === pane.id ? existingTab.id : p.activeTabId
                   };
                 }
 
@@ -800,10 +800,12 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
                 };
 
                 console.log(`🪟 Pane ${p.id}: Creating new tab ${newTab.id} for file ${file.name}`);
+                // CRITICAL: Preserve all pane properties (especially showScrollbars)
+                // Only activate new tab in the pane that opened the file
                 return {
                   ...p,
                   tabs: [...filteredTabs, newTab],
-                  activeTabId: newTab.id,
+                  activeTabId: p.id === pane.id ? newTab.id : p.activeTabId,
                 };
               });
 
