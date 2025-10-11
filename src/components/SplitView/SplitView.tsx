@@ -34,6 +34,8 @@ interface SplitViewProps {
     lineWidth: number;
     fontSize: number;
     eraserSize: number;
+    markerWidth: number;
+    markerOpacity: number;
   };
   onDocumentLoad: (doc: PDFDocumentProxy) => void;
   onAnnotationAdd: (viewId: 'left' | 'right', annotation: Annotation) => void;
