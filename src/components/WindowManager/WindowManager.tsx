@@ -66,6 +66,7 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
         lastUpdated: Date.now()
       }],
       activeTabId: 'tab_1',
+      showScrollbars: false, // Initialize explicitly
     }
   ]);
 
@@ -433,12 +434,13 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
             ...tab,
             id: `tab_single_${index}`
           })) : prevPanes[0].tabs;
-          
+
           newPanes = [{
             ...prevPanes[0],
             id: 'pane_1', // Ensure pane_1 ID for single layout
             tabs: singlePaneTabs,
-            activeTabId: singlePaneTabs.length > 0 ? singlePaneTabs[0].id : 'tab_single_0'
+            activeTabId: singlePaneTabs.length > 0 ? singlePaneTabs[0].id : 'tab_single_0',
+            showScrollbars: prevPanes[0].showScrollbars || false, // CRITICAL: Preserve scrollbar state
           }];
           break;
           
@@ -448,7 +450,7 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
             // Create second pane with same tabs
             const timestamp = Date.now();
             const sharedTabs = uniqueTabs.length > 0 ? uniqueTabs : prevPanes[0].tabs;
-            
+
             newPanes = [
               {
                 ...prevPanes[0],
@@ -456,7 +458,8 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
                   ...tab,
                   id: `tab_p1_${index}`,
                   lastUpdated: timestamp
-                }))
+                })),
+                showScrollbars: prevPanes[0].showScrollbars || false, // CRITICAL: Preserve scrollbar state
               },
               {
                 id: 'pane_2',
@@ -466,6 +469,7 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
                   lastUpdated: timestamp
                 })),
                 activeTabId: `tab_p2_0`,
+                showScrollbars: false, // New pane starts with scrollbars off
               }
             ];
           } else {
@@ -475,7 +479,8 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
               tabs: uniqueTabs.length > 0 ? uniqueTabs.map((tab, index) => ({
                 ...tab,
                 id: `tab_p${paneIndex + 1}_${index}`
-              })) : pane.tabs
+              })) : pane.tabs,
+              showScrollbars: pane.showScrollbars || false, // CRITICAL: Preserve scrollbar state
             }));
           }
           break;
@@ -488,7 +493,7 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
           newPanes = [];
           for (let i = 0; i < 4; i++) {
             const paneId = `pane_${i + 1}`;
-            const pane = prevPanes[i] || { id: paneId, activeTabId: '' };
+            const pane = prevPanes[i] || { id: paneId, activeTabId: '', showScrollbars: false };
 
             const paneTabs = tile2x2Tabs.map((tab, index) => ({
               ...tab,
@@ -501,6 +506,7 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
               id: paneId,
               tabs: paneTabs,
               activeTabId: paneTabs[0]?.id || pane.activeTabId,
+              showScrollbars: pane.showScrollbars || false, // CRITICAL: Preserve scrollbar state
             });
           }
           break;
@@ -513,7 +519,7 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
           newPanes = [];
           for (let i = 0; i < 6; i++) {
             const paneId = `pane_${i + 1}`;
-            const pane = prevPanes[i] || { id: paneId, activeTabId: '' };
+            const pane = prevPanes[i] || { id: paneId, activeTabId: '', showScrollbars: false };
 
             const paneTabs = tile3x2Tabs.map((tab, index) => ({
               ...tab,
@@ -526,6 +532,7 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
               id: paneId,
               tabs: paneTabs,
               activeTabId: paneTabs[0]?.id || pane.activeTabId,
+              showScrollbars: pane.showScrollbars || false, // CRITICAL: Preserve scrollbar state
             });
           }
           break;
@@ -538,7 +545,7 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
           newPanes = [];
           for (let i = 0; i < 8; i++) {
             const paneId = `pane_${i + 1}`;
-            const pane = prevPanes[i] || { id: paneId, activeTabId: '' };
+            const pane = prevPanes[i] || { id: paneId, activeTabId: '', showScrollbars: false };
 
             const paneTabs = tile4x2Tabs.map((tab, index) => ({
               ...tab,
@@ -551,6 +558,7 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
               id: paneId,
               tabs: paneTabs,
               activeTabId: paneTabs[0]?.id || pane.activeTabId,
+              showScrollbars: pane.showScrollbars || false, // CRITICAL: Preserve scrollbar state
             });
           }
           break;
