@@ -1,5 +1,5 @@
 // Annotation types
-export type AnnotationType = 'pen' | 'text' | 'line' | 'eraser';
+export type AnnotationType = 'pen' | 'text' | 'line' | 'marker' | 'eraser';
 
 export interface Point {
   x: number;
@@ -38,10 +38,19 @@ export interface LineAnnotation extends BaseAnnotation {
   width: number;
 }
 
-export type Annotation = PenAnnotation | TextAnnotation | LineAnnotation;
+export interface MarkerAnnotation extends BaseAnnotation {
+  type: 'marker';
+  start: Point;
+  end: Point;
+  color: string;
+  width: number;
+  opacity: number; // 0-1 range
+}
+
+export type Annotation = PenAnnotation | TextAnnotation | LineAnnotation | MarkerAnnotation;
 
 // Tool types
-export type ToolType = 'pen' | 'text' | 'line' | 'eraser' | 'select';
+export type ToolType = 'pen' | 'text' | 'line' | 'marker' | 'eraser' | 'select';
 
 export interface ToolSettings {
   currentTool: ToolType;
@@ -49,6 +58,8 @@ export interface ToolSettings {
   lineWidth: number;
   fontSize: number;
   eraserSize: number;
+  markerWidth: number;
+  markerOpacity: number;
 }
 
 // Tab types
@@ -140,6 +151,18 @@ export const ERASER_SIZE_PRESETS = [
   { name: 'Small', size: 10 },
   { name: 'Medium', size: 20 },
   { name: 'Large', size: 40 },
+] as const;
+
+// Marker width presets (32px as default/center)
+export const MARKER_WIDTH_PRESETS = [16, 20, 24, 32, 40, 48] as const;
+
+// Marker opacity presets (30% as default/center)
+export const MARKER_OPACITY_PRESETS = [
+  { name: '10%', value: 0.1 },
+  { name: '20%', value: 0.2 },
+  { name: '30%', value: 0.3 },
+  { name: '40%', value: 0.4 },
+  { name: '50%', value: 0.5 },
 ] as const;
 
 // Zoom level presets

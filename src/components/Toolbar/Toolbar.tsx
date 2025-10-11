@@ -5,6 +5,8 @@ import {
   LINE_WIDTH_PRESETS,
   FONT_SIZE_PRESETS,
   ERASER_SIZE_PRESETS,
+  MARKER_WIDTH_PRESETS,
+  MARKER_OPACITY_PRESETS,
   WindowLayout,
 } from '../../types';
 import { HelpModal } from '../Help/HelpModal';
@@ -17,6 +19,8 @@ interface ToolbarProps {
   lineWidth: number;
   fontSize: number;
   eraserSize: number;
+  markerWidth: number;
+  markerOpacity: number;
   windowLayout?: WindowLayout;
   canUndo: boolean;
   canRedo: boolean;
@@ -26,6 +30,8 @@ interface ToolbarProps {
   onLineWidthChange: (width: number) => void;
   onFontSizeChange: (size: number) => void;
   onEraserSizeChange: (size: number) => void;
+  onMarkerWidthChange: (width: number) => void;
+  onMarkerOpacityChange: (opacity: number) => void;
   onWindowLayoutChange?: (layout: WindowLayout) => void;
   onUndo: () => void;
   onRedo: () => void;
@@ -41,6 +47,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   lineWidth,
   fontSize,
   eraserSize,
+  markerWidth,
+  markerOpacity,
   windowLayout = 'single',
   canUndo,
   canRedo,
@@ -50,6 +58,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onLineWidthChange,
   onFontSizeChange,
   onEraserSizeChange,
+  onMarkerWidthChange,
+  onMarkerOpacityChange,
   onWindowLayoutChange,
   onUndo,
   onRedo,
@@ -80,6 +90,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     { id: 'eraser', icon: '🧹', label: 'Eraser Tool (2)' },
     { id: 'text', icon: '📝', label: 'Text Tool (3)' },
     { id: 'line', icon: '📏', label: 'Line Tool (4)' },
+    { id: 'marker', icon: '🖍️', label: 'Marker Tool (6)' },
     { id: 'select', icon: '👆', label: 'Select Tool (5)' },
   ];
 
@@ -188,7 +199,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       </div>
 
       {/* Color picker */}
-      {(currentTool === 'pen' || currentTool === 'line' || currentTool === 'text') && (
+      {(currentTool === 'pen' || currentTool === 'line' || currentTool === 'marker' || currentTool === 'text') && (
         <div className={clsx('flex items-center border-r border-gray-600', {
           'gap-2 pr-4': !isMobile,
           'gap-1 pr-2': isMobile,
@@ -282,6 +293,42 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               onClick={() => onEraserSizeChange(preset.size)}
               className={clsx('toolbar-button px-3 py-1', {
                 active: eraserSize === preset.size,
+              })}
+            >
+              {preset.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Marker width */}
+      {currentTool === 'marker' && !isMobile && (
+        <div className="flex items-center gap-2 border-r border-gray-600 pr-4">
+          <span className="text-sm">Width:</span>
+          {MARKER_WIDTH_PRESETS.map((width) => (
+            <button
+              key={width}
+              onClick={() => onMarkerWidthChange(width)}
+              className={clsx('toolbar-button px-3 py-1', {
+                active: markerWidth === width,
+              })}
+            >
+              {width}px
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Marker opacity */}
+      {currentTool === 'marker' && !isMobile && (
+        <div className="flex items-center gap-2 border-r border-gray-600 pr-4">
+          <span className="text-sm">Opacity:</span>
+          {MARKER_OPACITY_PRESETS.map((preset) => (
+            <button
+              key={preset.name}
+              onClick={() => onMarkerOpacityChange(preset.value)}
+              className={clsx('toolbar-button px-3 py-1', {
+                active: Math.abs(markerOpacity - preset.value) < 0.01,
               })}
             >
               {preset.name}

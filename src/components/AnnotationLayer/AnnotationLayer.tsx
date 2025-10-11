@@ -3,6 +3,7 @@ import { Annotation, ToolType, TextAnnotation } from '../../types';
 import { PenTool } from '../../tools/PenTool';
 import { EraserTool } from '../../tools/EraserTool';
 import { LineTool } from '../../tools/LineTool';
+import { MarkerTool } from '../../tools/MarkerTool';
 import { TextTool } from '../../tools/TextTool';
 import { TextEditDialog } from './TextEditDialog';
 import { ResizableText } from './ResizableText';
@@ -18,6 +19,8 @@ interface AnnotationLayerProps {
     lineWidth: number;
     fontSize: number;
     eraserSize: number;
+    markerWidth: number;
+    markerOpacity: number;
   };
   canvasWidth: number;
   canvasHeight: number;
@@ -60,11 +63,13 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
     pen: PenTool | null;
     eraser: EraserTool | null;
     line: LineTool | null;
+    marker: MarkerTool | null;
     text: TextTool | null;
   }>({
     pen: null,
     eraser: null,
     line: null,
+    marker: null,
     text: null,
   });
 
@@ -110,6 +115,7 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
       pen: new PenTool(canvas, ctx, handleAnnotationAdd),
       eraser: new EraserTool(canvas, ctx, (ids) => ids.forEach(onAnnotationRemove)),
       line: new LineTool(canvas, ctx, handleAnnotationAdd),
+      marker: new MarkerTool(canvas, ctx, handleAnnotationAdd),
       text: new TextTool(canvas, ctx, handleAnnotationAdd),
     };
 
@@ -172,6 +178,13 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
         forceUpdate(prev => prev + 1);
       }
     }
+    if (toolsRef.current.marker && currentTool !== 'marker') {
+      // Cancel marker tool when switching away from it
+      if (toolsRef.current.marker.isActive()) {
+        toolsRef.current.marker.cancel();
+        forceUpdate(prev => prev + 1);
+      }
+    }
     if (toolsRef.current.pen && currentTool !== 'pen') {
       if (toolsRef.current.pen.isActive()) {
         toolsRef.current.pen.cancel();
@@ -180,13 +193,17 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
     }
   }, [currentTool, toolsInitialized]);
 
-  // Handle Escape key to reset line tool
+  // Handle Escape key to reset line/marker tool
   useEffect(() => {
     if (!toolsInitialized) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (currentTool === 'line' && toolsRef.current.line && toolsRef.current.line.isActive()) {
           toolsRef.current.line.cancel();
+          forceUpdate(prev => prev + 1);
+        }
+        if (currentTool === 'marker' && toolsRef.current.marker && toolsRef.current.marker.isActive()) {
+          toolsRef.current.marker.cancel();
           forceUpdate(prev => prev + 1);
         }
       }
@@ -211,6 +228,11 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
     if (toolsRef.current.line) {
       toolsRef.current.line.setColor(toolSettings.color);
       toolsRef.current.line.setLineWidth(toolSettings.lineWidth);
+    }
+    if (toolsRef.current.marker) {
+      toolsRef.current.marker.setColor(toolSettings.color);
+      toolsRef.current.marker.setLineWidth(toolSettings.markerWidth);
+      toolsRef.current.marker.setOpacity(toolSettings.markerOpacity);
     }
     if (toolsRef.current.text) {
       toolsRef.current.text.setColor(toolSettings.color);
@@ -287,6 +309,43 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
           ctx.moveTo(screenStart.x, screenStart.y);
           ctx.lineTo(screenEnd.x, screenEnd.y);
           ctx.stroke();
+          break;
+
+        case 'marker':
+          // Convert normalized points to screen coordinates
+          const markerStart = normalizedToScreen(
+            annotation.start,
+            canvas.width,
+            canvas.height
+          );
+          const markerEnd = normalizedToScreen(
+            annotation.end,
+            canvas.width,
+            canvas.height
+          );
+
+          // Draw semi-transparent rectangle marker
+          ctx.globalAlpha = annotation.opacity;
+          ctx.fillStyle = annotation.color;
+          ctx.strokeStyle = annotation.color;
+          ctx.lineWidth = annotation.width;
+          ctx.lineCap = 'butt'; // Square ends for marker
+
+          // Calculate rectangle dimensions
+          const dx = markerEnd.x - markerStart.x;
+          const dy = markerEnd.y - markerStart.y;
+          const length = Math.sqrt(dx * dx + dy * dy);
+          const angle = Math.atan2(dy, dx);
+
+          // Draw marker as filled rectangle
+          ctx.save();
+          ctx.translate(markerStart.x, markerStart.y);
+          ctx.rotate(angle);
+          ctx.fillRect(0, -annotation.width / 2, length, annotation.width);
+          ctx.restore();
+
+          // Reset globalAlpha
+          ctx.globalAlpha = 1.0;
           break;
 
         case 'text':
@@ -464,6 +523,57 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
       }
     }
 
+    // Draw current marker if exists (with semi-transparent preview)
+    if (currentTool === 'marker' && toolsRef.current.marker && toolsRef.current.marker.isActive()) {
+      const currentMarker = toolsRef.current.marker.getCurrentMarker();
+      if (currentMarker) {
+        ctx.save();
+        ctx.globalAlpha = currentMarker.opacity;
+        ctx.fillStyle = currentMarker.color;
+        ctx.strokeStyle = currentMarker.color;
+        ctx.lineWidth = currentMarker.lineWidth;
+        ctx.lineCap = 'butt';
+
+        // Calculate rectangle dimensions
+        const dx = currentMarker.end.x - currentMarker.start.x;
+        const dy = currentMarker.end.y - currentMarker.start.y;
+        const length = Math.sqrt(dx * dx + dy * dy);
+        const angle = Math.atan2(dy, dx);
+
+        // Draw marker preview as filled rectangle with dashed outline
+        ctx.save();
+        ctx.translate(currentMarker.start.x, currentMarker.start.y);
+        ctx.rotate(angle);
+        ctx.fillRect(0, -currentMarker.lineWidth / 2, length, currentMarker.lineWidth);
+        ctx.restore();
+
+        // Reset globalAlpha and draw start/end indicators
+        ctx.globalAlpha = 1.0;
+        ctx.setLineDash([]);
+
+        // Draw start point indicator (circle with "1")
+        ctx.fillStyle = currentMarker.color;
+        ctx.beginPath();
+        ctx.arc(currentMarker.start.x, currentMarker.start.y, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('1', currentMarker.start.x, currentMarker.start.y);
+
+        // Draw end point indicator (circle with "2")
+        ctx.fillStyle = currentMarker.color;
+        ctx.beginPath();
+        ctx.arc(currentMarker.end.x, currentMarker.end.y, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText('2', currentMarker.end.x, currentMarker.end.y);
+
+        ctx.restore();
+      }
+    }
+
     // Draw cursor indicator for line tool
     if (currentTool === 'line' && cursorPosition && toolsRef.current.line) {
       const state = toolsRef.current.line.getState();
@@ -474,6 +584,35 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
 
       // Draw circle background
       ctx.fillStyle = state === 'waiting-first' ? '#3b82f6' : '#10b981';
+      ctx.beginPath();
+      ctx.arc(cursorPosition.x, cursorPosition.y, cursorSize / 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Draw border
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Draw number
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 14px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, cursorPosition.x, cursorPosition.y);
+
+      ctx.restore();
+    }
+
+    // Draw cursor indicator for marker tool
+    if (currentTool === 'marker' && cursorPosition && toolsRef.current.marker) {
+      const state = toolsRef.current.marker.getState();
+      const label = state === 'waiting-first' ? '1' : '2';
+      const cursorSize = 24;
+
+      ctx.save();
+
+      // Draw circle background (yellow theme for marker)
+      ctx.fillStyle = state === 'waiting-first' ? '#eab308' : '#84cc16';
       ctx.beginPath();
       ctx.arc(cursorPosition.x, cursorPosition.y, cursorSize / 2, 0, Math.PI * 2);
       ctx.fill();
@@ -616,8 +755,8 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
         return;
       }
 
-      // For line tool, don't set isDrawingRef as we use click-based approach
-      if (currentTool !== 'line') {
+      // For line/marker tools, don't set isDrawingRef as we use click-based approach
+      if (currentTool !== 'line' && currentTool !== 'marker') {
         isDrawingRef.current = true;
       }
 
@@ -649,6 +788,25 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
             // Second click - complete line
             console.log('🔵 LINE - Second click, calling stopDrawing, pageNumber:', pageNumber);
             toolsRef.current.line.stopDrawing(event.nativeEvent, pageNumber);
+            forceUpdate(prev => prev + 1);
+          }
+          break;
+        case 'marker':
+          // Marker tool uses two-click approach (same as line tool)
+          // Update cursor position on click
+          setCursorPosition({ x, y });
+
+          console.log('🟨 MARKER - handlePointerDown, isActive:', toolsRef.current.marker.isActive(), 'coords:', { x, y });
+
+          if (!toolsRef.current.marker.isActive()) {
+            // First click - start marker
+            console.log('🟨 MARKER - First click, calling startDrawing');
+            toolsRef.current.marker.startDrawing(event.nativeEvent);
+            forceUpdate(prev => prev + 1);
+          } else {
+            // Second click - complete marker
+            console.log('🟨 MARKER - Second click, calling stopDrawing, pageNumber:', pageNumber);
+            toolsRef.current.marker.stopDrawing(event.nativeEvent, pageNumber);
             forceUpdate(prev => prev + 1);
           }
           break;
@@ -697,8 +855,8 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
         ? event.nativeEvent.touches[0].clientY - rect.top
         : event.nativeEvent.clientY - rect.top;
 
-      // Update cursor position for line tool
-      if (currentTool === 'line') {
+      // Update cursor position for line/marker tools
+      if (currentTool === 'line' || currentTool === 'marker') {
         setCursorPosition({ x, y });
       } else {
         setCursorPosition(null);
@@ -708,6 +866,15 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
       if (currentTool === 'line' && toolsRef.current.line) {
         if (toolsRef.current.line.isActive()) {
           toolsRef.current.line.draw(event.nativeEvent);
+          forceUpdate(prev => prev + 1);
+        }
+        return;
+      }
+
+      // For marker tool, ALWAYS update preview when active
+      if (currentTool === 'marker' && toolsRef.current.marker) {
+        if (toolsRef.current.marker.isActive()) {
+          toolsRef.current.marker.draw(event.nativeEvent);
           forceUpdate(prev => prev + 1);
         }
         return;
@@ -751,8 +918,8 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
 
       if (!toolsRef.current.pen || !toolsRef.current.eraser || !toolsRef.current.line) return;
 
-      // CRITICAL: Line tool uses click-based approach, completely skip
-      if (currentTool === 'line') {
+      // CRITICAL: Line/Marker tools use click-based approach, completely skip
+      if (currentTool === 'line' || currentTool === 'marker') {
         return;
       }
 
@@ -813,8 +980,8 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
       return;
     }
 
-    // CRITICAL FIX: Don't cancel line tool - it uses click-based approach
-    if (currentTool === 'line') {
+    // CRITICAL FIX: Don't cancel line/marker tools - they use click-based approach
+    if (currentTool === 'line' || currentTool === 'marker') {
       return;
     }
 
@@ -833,8 +1000,8 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
 
   // Define cursor style based on tool
   const getCursorStyle = () => {
-    // Hide cursor for line tool (we draw custom indicator)
-    if (currentTool === 'line') {
+    // Hide cursor for line/marker tools (we draw custom indicator)
+    if (currentTool === 'line' || currentTool === 'marker') {
       return 'none';
     }
     switch (currentTool) {

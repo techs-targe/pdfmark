@@ -29,6 +29,8 @@ function App() {
     lineWidth: 2,
     fontSize: 16,
     eraserSize: 20,
+    markerWidth: 32,
+    markerOpacity: 0.3,
   });
 
   // Auto-save state
@@ -815,6 +817,8 @@ function App() {
         lineWidth={toolSettings.lineWidth}
         fontSize={toolSettings.fontSize}
         eraserSize={toolSettings.eraserSize}
+        markerWidth={toolSettings.markerWidth}
+        markerOpacity={toolSettings.markerOpacity}
         windowLayout={windowLayout}
         canUndo={canUndo}
         canRedo={canRedo}
@@ -831,6 +835,12 @@ function App() {
         }
         onEraserSizeChange={(size) =>
           setToolSettings((prev) => ({ ...prev, eraserSize: size }))
+        }
+        onMarkerWidthChange={(width) =>
+          setToolSettings((prev) => ({ ...prev, markerWidth: width }))
+        }
+        onMarkerOpacityChange={(opacity) =>
+          setToolSettings((prev) => ({ ...prev, markerOpacity: opacity }))
         }
         onWindowLayoutChange={setWindowLayout}
         onUndo={undo}
