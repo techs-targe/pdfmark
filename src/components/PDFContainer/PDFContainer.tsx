@@ -15,6 +15,8 @@ interface PDFContainerProps {
     lineWidth: number;
     fontSize: number;
     eraserSize: number;
+    markerWidth: number;
+    markerOpacity: number;
   };
   onPageChange: (page: number) => void;
   onDocumentLoad: (doc: PDFDocumentProxy) => void;

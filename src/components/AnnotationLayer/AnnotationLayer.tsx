@@ -793,6 +793,8 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
           break;
         case 'marker':
           // Marker tool uses two-click approach (same as line tool)
+          if (!toolsRef.current.marker) return;
+
           // Update cursor position on click
           setCursorPosition({ x, y });
 

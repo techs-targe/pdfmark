@@ -16,6 +16,8 @@ interface SimplePDFViewerProps {
     lineWidth: number;
     fontSize: number;
     eraserSize: number;
+    markerWidth: number;
+    markerOpacity: number;
   };
   scrollPosition?: { x: number; y: number };
   onPageChange: (page: number) => void;
