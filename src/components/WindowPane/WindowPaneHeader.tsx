@@ -27,10 +27,10 @@ interface WindowPaneHeaderProps {
 
 export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
   activeTab,
-  totalPages = 0,
+  totalPages: _totalPages = 0,
   actualScale = 1,
   loadedFiles = [],
-  onPageChange,
+  onPageChange: _onPageChange,
   onZoomChange,
   onFileUpload,
   onFileOpenInNewTab,
@@ -40,7 +40,7 @@ export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
   onRedo,
   canUndo = false,
   canRedo = false,
-  pageInputRef,
+  pageInputRef: _pageInputRef,
   paneId,
   onScrollbarsToggle,
   showScrollbars = false,
