@@ -4,12 +4,14 @@ interface ScrollSliderProps {
   containerRef: React.RefObject<HTMLDivElement>;
   orientation: 'vertical' | 'horizontal';
   show: boolean;
+  renderTrigger?: number; // CRITICAL: Trigger recalculation when PDF renders
 }
 
 export const ScrollSlider: React.FC<ScrollSliderProps> = ({
   containerRef,
   orientation,
-  show
+  show,
+  renderTrigger = 0
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [scrollRatio, setScrollRatio] = useState(0);
@@ -60,46 +62,50 @@ export const ScrollSlider: React.FC<ScrollSliderProps> = ({
     };
   }, [containerRef, orientation]);
 
-  // Force update when show prop changes to ensure immediate display
+  // CRITICAL: Recalculate when PDF content is rendered
+  // This is triggered by renderTrigger changing (PDF render complete signal)
   useEffect(() => {
-    if (show && containerRef.current) {
-      const container = containerRef.current;
-      const updateScrollState = () => {
-        if (orientation === 'vertical') {
-          const maxScroll = container.scrollHeight - container.clientHeight;
-          const hasScroll = maxScroll > 0;
-          setCanScroll(hasScroll);
+    if (!show || !containerRef.current) return;
 
-          if (hasScroll) {
-            setScrollRatio(container.scrollTop / maxScroll);
-            const visibleRatio = container.clientHeight / container.scrollHeight;
-            setThumbSize(Math.max(visibleRatio, 0.1));
-          } else {
-            // Even if not scrollable, set default values for immediate display
-            setScrollRatio(0);
-            setThumbSize(0.5);
-          }
+    const container = containerRef.current;
+    const updateScrollState = () => {
+      if (orientation === 'vertical') {
+        const maxScroll = container.scrollHeight - container.clientHeight;
+        const hasScroll = maxScroll > 0;
+        setCanScroll(hasScroll);
+
+        if (hasScroll) {
+          setScrollRatio(container.scrollTop / maxScroll);
+          const visibleRatio = container.clientHeight / container.scrollHeight;
+          setThumbSize(Math.max(visibleRatio, 0.1));
         } else {
-          const maxScroll = container.scrollWidth - container.clientWidth;
-          const hasScroll = maxScroll > 0;
-          setCanScroll(hasScroll);
-
-          if (hasScroll) {
-            setScrollRatio(container.scrollLeft / maxScroll);
-            const visibleRatio = container.clientWidth / container.scrollWidth;
-            setThumbSize(Math.max(visibleRatio, 0.1));
-          } else {
-            // Even if not scrollable, set default values for immediate display
-            setScrollRatio(0);
-            setThumbSize(0.5);
-          }
+          // Even if not scrollable, set default values
+          setScrollRatio(0);
+          setThumbSize(0.5);
         }
-      };
+      } else {
+        const maxScroll = container.scrollWidth - container.clientWidth;
+        const hasScroll = maxScroll > 0;
+        setCanScroll(hasScroll);
 
-      // Use requestAnimationFrame to ensure DOM is ready
-      requestAnimationFrame(updateScrollState);
-    }
-  }, [show, containerRef, orientation]);
+        if (hasScroll) {
+          setScrollRatio(container.scrollLeft / maxScroll);
+          const visibleRatio = container.clientWidth / container.scrollWidth;
+          setThumbSize(Math.max(visibleRatio, 0.1));
+        } else {
+          // Even if not scrollable, set default values
+          setScrollRatio(0);
+          setThumbSize(0.5);
+        }
+      }
+    };
+
+    // CRITICAL FIX: Use requestAnimationFrame to ensure DOM is updated
+    // After PDF renders, we need to wait one frame for layout to complete
+    requestAnimationFrame(() => {
+      updateScrollState();
+    });
+  }, [show, renderTrigger, containerRef, orientation]); // renderTrigger dependency is CRITICAL!
 
   // Handle slider drag
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -192,7 +198,9 @@ export const ScrollSlider: React.FC<ScrollSliderProps> = ({
   }, [isDragging, handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd]);
 
   // Only show scrollbar if enabled AND content is scrollable
-  if (!show || !canScroll) return null;
+  if (!show || !canScroll) {
+    return null;
+  }
 
   const isVertical = orientation === 'vertical';
   const trackWidth = 42; // 28px * 1.5 = 42px

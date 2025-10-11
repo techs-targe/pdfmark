@@ -77,6 +77,8 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
   // Track which scrollbars are actually visible
   const [hasVerticalScroll, setHasVerticalScroll] = useState(false);
   const [hasHorizontalScroll, setHasHorizontalScroll] = useState(false);
+  // Track PDF rendering completion to trigger scrollbar recalculation
+  const [contentRenderCounter, setContentRenderCounter] = useState(0);
 
   // Expose containerRef, totalPages, and actualScale to parent
   useImperativeHandle(ref, () => ({
@@ -204,6 +206,10 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
 
       renderTaskRef.current = page.render(renderContext);
       await renderTaskRef.current.promise;
+
+      // CRITICAL: Notify that PDF rendering is complete
+      // Increment counter to trigger ScrollSlider recalculation
+      setContentRenderCounter(prev => prev + 1);
     } catch (err: any) {
       if (err.name !== 'RenderingCancelledException') {
         console.error('Error rendering page:', err);
@@ -220,20 +226,35 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
 
   // Track previous page for scroll reset logic
   const prevPageRef = useRef<number>(currentPage);
+  // Track pending scroll position to restore after PDF renders
+  const pendingScrollRef = useRef<{ x: number; y: number } | null>(null);
 
-  // Handle scroll position restoration
+  // Store scroll position when it changes (but don't apply yet if content is rendering)
   useEffect(() => {
-    if (!containerRef.current || !scrollPosition) return;
-
-    // Restore scroll position from tab state
-    containerRef.current.scrollTo(scrollPosition.x, scrollPosition.y);
+    if (scrollPosition) {
+      pendingScrollRef.current = scrollPosition;
+    }
   }, [scrollPosition]);
+
+  // CRITICAL: Restore scroll position AFTER PDF rendering completes
+  useEffect(() => {
+    if (!containerRef.current || !pendingScrollRef.current) return;
+
+    const scrollPos = pendingScrollRef.current;
+    // Use requestAnimationFrame to ensure layout is complete
+    requestAnimationFrame(() => {
+      if (containerRef.current && pendingScrollRef.current) {
+        containerRef.current.scrollTo(scrollPos.x, scrollPos.y);
+      }
+    });
+  }, [contentRenderCounter]); // Trigger when PDF rendering completes
 
   // Reset scroll to top ONLY when page actually changes (not on tab switch)
   useEffect(() => {
     if (containerRef.current && prevPageRef.current !== currentPage) {
       // Page actually changed, reset scroll
       containerRef.current.scrollTo(0, 0);
+      pendingScrollRef.current = { x: 0, y: 0 }; // Clear pending scroll
       prevPageRef.current = currentPage;
     }
   }, [currentPage]);
@@ -650,13 +671,6 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
     );
   }
 
-  // Debug logging for scrollbars
-  React.useEffect(() => {
-    console.log('🔍 SimplePDFViewer: showScrollbars =', showScrollbars);
-    if (containerRef.current) {
-      console.log('🔍 SimplePDFViewer: container classes =', containerRef.current.className);
-    }
-  }, [showScrollbars]);
 
   return (
     <div className="relative w-full h-full">
@@ -801,8 +815,18 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
     </div>
 
     {/* Custom scroll sliders */}
-    <ScrollSlider containerRef={containerRef} orientation="vertical" show={showScrollbars} />
-    <ScrollSlider containerRef={containerRef} orientation="horizontal" show={showScrollbars} />
+    <ScrollSlider
+      containerRef={containerRef}
+      orientation="vertical"
+      show={showScrollbars}
+      renderTrigger={contentRenderCounter}
+    />
+    <ScrollSlider
+      containerRef={containerRef}
+      orientation="horizontal"
+      show={showScrollbars}
+      renderTrigger={contentRenderCounter}
+    />
     </div>
   );
 }));

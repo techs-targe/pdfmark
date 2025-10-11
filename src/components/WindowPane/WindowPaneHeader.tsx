@@ -275,10 +275,7 @@ export const WindowPaneHeader: React.FC<WindowPaneHeaderProps> = ({
         {/* Scrollbars toggle button */}
         {onScrollbarsToggle && (
           <button
-            onClick={() => {
-              console.log('🔵 WindowPaneHeader: Scrollbars button clicked! Current state:', showScrollbars);
-              onScrollbarsToggle();
-            }}
+            onClick={onScrollbarsToggle}
             className={`px-1 py-0.5 hover:bg-gray-700 rounded text-xs ${
               showScrollbars ? 'bg-blue-600' : ''
             }`}

@@ -63,6 +63,7 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
         fileName: pdfFile?.name,
         currentPage: 1,
         zoomLevel: 'fit-width',
+        scrollPosition: { x: 0, y: 0 }, // CRITICAL: Initialize scroll position
         lastUpdated: Date.now()
       }],
       activeTabId: 'tab_1',
@@ -92,7 +93,8 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
                       ...tab,
                       file: pdfFile,
                       fileName: pdfFile.name,
-                      name: pdfFile.name.replace('.pdf', '').slice(0, 20)
+                      name: pdfFile.name.replace('.pdf', '').slice(0, 20),
+                      scrollPosition: tab.scrollPosition || { x: 0, y: 0 } // CRITICAL: Ensure scroll position is set
                     }
                   : tab
               )
@@ -334,11 +336,12 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
   }, [panes, hasUnsavedChanges]);
 
   const handleTabChange = useCallback((paneId: string, tabId: string) => {
-    setPanes(prevPanes => prevPanes.map(pane => 
-      pane.id === paneId 
-        ? { ...pane, activeTabId: tabId }
-        : pane
-    ));
+    setPanes(prevPanes => prevPanes.map(pane => {
+      if (pane.id === paneId) {
+        return { ...pane, activeTabId: tabId };
+      }
+      return pane;
+    }));
   }, []);
 
   const handleTabRename = useCallback((_paneId: string, tabId: string, newName: string) => {
@@ -646,18 +649,12 @@ export const WindowManager = forwardRef<any, WindowManagerProps>(({
 
   // Handle scrollbars toggle for a specific pane
   const handleScrollbarsToggle = useCallback((paneId: string) => {
-    console.log('🟢 WindowManager: handleScrollbarsToggle called for pane:', paneId);
-    setPanes(prevPanes => {
-      const updated = prevPanes.map(pane => {
-        if (pane.id === paneId) {
-          const newValue = !pane.showScrollbars;
-          console.log(`🟢 WindowManager: Pane ${pane.id} showScrollbars: ${pane.showScrollbars} → ${newValue}`);
-          return { ...pane, showScrollbars: newValue };
-        }
-        return pane;
-      });
-      return updated;
-    });
+    setPanes(prevPanes => prevPanes.map(pane => {
+      if (pane.id === paneId) {
+        return { ...pane, showScrollbars: !pane.showScrollbars };
+      }
+      return pane;
+    }));
   }, []);
 
   // Render single pane
