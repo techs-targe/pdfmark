@@ -218,35 +218,43 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
     renderPage();
   }, [renderPage]);
 
+  // Track previous page for scroll reset logic
+  const prevPageRef = useRef<number>(currentPage);
+
   // Handle scroll position restoration
   useEffect(() => {
     if (!containerRef.current || !scrollPosition) return;
-    
+
+    // Restore scroll position from tab state
     containerRef.current.scrollTo(scrollPosition.x, scrollPosition.y);
   }, [scrollPosition]);
-  
-  // Reset scroll to top when page changes
+
+  // Reset scroll to top ONLY when page actually changes (not on tab switch)
   useEffect(() => {
-    if (containerRef.current) {
+    if (containerRef.current && prevPageRef.current !== currentPage) {
+      // Page actually changed, reset scroll
       containerRef.current.scrollTo(0, 0);
+      prevPageRef.current = currentPage;
     }
   }, [currentPage]);
 
   // Check which scrollbars are needed
   const checkScrollbars = useCallback(() => {
-    if (!containerRef.current || !showScrollbars) {
+    if (!containerRef.current) {
       setHasVerticalScroll(false);
       setHasHorizontalScroll(false);
       return;
     }
 
+    // CRITICAL: Always check scroll state regardless of showScrollbars
+    // The showScrollbars prop only controls VISIBILITY, not detection
     const container = containerRef.current;
     const hasVScroll = container.scrollHeight > container.clientHeight;
     const hasHScroll = container.scrollWidth > container.clientWidth;
 
     setHasVerticalScroll(hasVScroll);
     setHasHorizontalScroll(hasHScroll);
-  }, [showScrollbars]);
+  }, []); // Remove showScrollbars dependency
 
   // Check scrollbars when content changes
   useEffect(() => {
