@@ -74,6 +74,9 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
   const [isResizingText, setIsResizingText] = useState(false);
   const [threeFingerPanning, setThreeFingerPanning] = useState(false);
   const [threeFingerPanStart, setThreeFingerPanStart] = useState<{ x: number; y: number } | null>(null);
+  // Track which scrollbars are actually visible
+  const [hasVerticalScroll, setHasVerticalScroll] = useState(false);
+  const [hasHorizontalScroll, setHasHorizontalScroll] = useState(false);
 
   // Expose containerRef, totalPages, and actualScale to parent
   useImperativeHandle(ref, () => ({
@@ -228,6 +231,38 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
       containerRef.current.scrollTo(0, 0);
     }
   }, [currentPage]);
+
+  // Check which scrollbars are needed
+  const checkScrollbars = useCallback(() => {
+    if (!containerRef.current || !showScrollbars) {
+      setHasVerticalScroll(false);
+      setHasHorizontalScroll(false);
+      return;
+    }
+
+    const container = containerRef.current;
+    const hasVScroll = container.scrollHeight > container.clientHeight;
+    const hasHScroll = container.scrollWidth > container.clientWidth;
+
+    setHasVerticalScroll(hasVScroll);
+    setHasHorizontalScroll(hasHScroll);
+  }, [showScrollbars]);
+
+  // Check scrollbars when content changes
+  useEffect(() => {
+    checkScrollbars();
+
+    // Also check on resize
+    const container = containerRef.current;
+    if (!container) return;
+
+    const resizeObserver = new ResizeObserver(checkScrollbars);
+    resizeObserver.observe(container);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [checkScrollbars, pageSize, zoomLevel]);
 
   // Handle scroll events
   const handleScroll = useCallback(() => {
@@ -698,8 +733,10 @@ export const SimplePDFViewer = memo(forwardRef<any, SimplePDFViewerProps>(({
     <div
       className="absolute left-4 flex justify-end gap-2 z-30 pointer-events-none transition-all duration-200"
       style={{
-        bottom: showScrollbars ? '54px' : '16px',
-        right: showScrollbars ? '54px' : '16px'
+        // Only move up if horizontal scrollbar is visible
+        bottom: (showScrollbars && hasHorizontalScroll) ? '54px' : '16px',
+        // Only move left if vertical scrollbar is visible
+        right: (showScrollbars && hasVerticalScroll) ? '54px' : '16px'
       }}
     >
       <div className="flex gap-2 pointer-events-auto bg-white/90 backdrop-blur-sm rounded-lg p-2 shadow-lg">

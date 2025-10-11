@@ -191,7 +191,8 @@ export const ScrollSlider: React.FC<ScrollSliderProps> = ({
     }
   }, [isDragging, handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd]);
 
-  if (!show) return null;
+  // Only show scrollbar if enabled AND content is scrollable
+  if (!show || !canScroll) return null;
 
   const isVertical = orientation === 'vertical';
   const trackWidth = 42; // 28px * 1.5 = 42px
@@ -209,8 +210,7 @@ export const ScrollSlider: React.FC<ScrollSliderProps> = ({
         height: !isVertical ? `${trackWidth}px` : undefined,
         backgroundColor: 'rgba(17, 24, 39, 0.95)',
         boxShadow: 'inset 0 0 6px rgba(0, 0, 0, 0.3)',
-        pointerEvents: canScroll ? 'auto' : 'none', // Disable interaction when not scrollable
-        opacity: canScroll ? 1 : 0.5 // Dim when not scrollable
+        pointerEvents: 'auto'
       }}
       onMouseDown={(e) => {
         // Click on track to jump
